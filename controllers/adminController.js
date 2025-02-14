@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const validator = require("validator");
 const Admin = require("../models/Admin"); // Ensure you have an Admin 
 const User = require("../models/User");
+const Inquiry = require("../models/inquiryModel");
 
 
 require("dotenv").config();
@@ -303,4 +304,32 @@ const getAllUsers = async (req, res) => {
 };
 
 
-module.exports = { registerAdmin, loginAdmin, getAdminDashboard, getUsersByStatus, getUsersByStatus, approveUser, blockUser, editUser, addUserFromAdmin, getUserRegistrationsPerMonth, getUserStatusCounts, getAllUsers}
+// ✅ Submit Inquiry (User Side)
+const submitInquiry = async (req, res) => {
+  try {
+      const { name, email, phone, subject, message } = req.body;
+
+      if (!name || !email || !phone || !subject || !message) {
+          return res.status(400).json({ error: "All fields are required." });
+      }
+
+      const inquiry = new Inquiry({ name, email, phone, subject, message });
+      await inquiry.save();
+      res.status(201).json({ message: "Inquiry submitted successfully!" });
+
+  } catch (error) {
+      res.status(500).json({ error: "Server Error: Unable to submit inquiry." });
+  }
+};
+
+// ✅ Fetch All Inquiries (Admin Side)
+const getAllInquiries = async (req, res) => {
+  try {
+      const inquiries = await Inquiry.find().sort({ createdAt: -1 });
+      res.status(200).json(inquiries);
+  } catch (error) {
+      res.status(500).json({ error: "Server Error: Unable to fetch inquiries." });
+  }
+};
+
+module.exports = { registerAdmin, loginAdmin, getAdminDashboard, getUsersByStatus, getUsersByStatus, approveUser, blockUser, editUser, addUserFromAdmin, getUserRegistrationsPerMonth, getUserStatusCounts, getAllUsers, getAllInquiries, submitInquiry}

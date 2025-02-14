@@ -36,7 +36,7 @@ const {
   addUserFromAdmin, 
   getUserRegistrationsPerMonth, 
   getUserStatusCounts,
-  getAllUsers
+  getAllUsers, submitInquiry, getAllInquiries
 } = require("../controllers/adminController");
 const adminAuth = require("../middleware/adminAuthMiddleware");  // ✅ Import middleware
 
@@ -301,7 +301,10 @@ router.get("/dashboard/status-counts", adminAuth, getUserStatusCounts);
 router.get("/users", adminAuth, getAllUsers);
 
 
+router.post("/inquiries/submit", submitInquiry);
 
+// ✅ Admin Fetches All Inquiries
+router.get("/inquiries/all", adminAuth, getAllInquiries);
 
 
 module.exports = router;
