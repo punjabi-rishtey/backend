@@ -35,7 +35,8 @@ const {
   editUser, 
   addUserFromAdmin, 
   getUserRegistrationsPerMonth, 
-  getUserStatusCounts
+  getUserStatusCounts,
+  getAllUsers
 } = require("../controllers/adminController");
 const adminAuth = require("../middleware/adminAuthMiddleware");  // ✅ Import middleware
 
@@ -281,5 +282,22 @@ router.get("/dashboard/registrations", adminAuth, getUserRegistrationsPerMonth);
  *         description: Unauthorized
  */
 router.get("/dashboard/status-counts", adminAuth, getUserStatusCounts);
+
+/**
+ * @swagger
+ * /api/admin/auth/users:
+ *   get:
+ *     summary: Get all users with full details
+ *     tags: [Admin]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Successfully fetched all users
+ *       500:
+ *         description: Server error
+ */
+
+router.get("/users", adminAuth, getAllUsers);
 
 module.exports = router;
