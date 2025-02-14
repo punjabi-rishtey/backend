@@ -30,4 +30,9 @@ app.use("/api/admin/auth", adminRoutes);
 
 app.listen(8080, () => console.log(`Server running on port 8080`));
 
+app.get("/", (req, res) => {
+    res.send("API is running...");
+  });
+  
+
 swaggerDocs(app);
