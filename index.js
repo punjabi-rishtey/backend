@@ -17,8 +17,37 @@ dotenv.config();
 connectDB();
 
 const app = express();
-app.use(cors({ origin: "*" }));  // ✅ Allow all origins
+// app.use(cors({ origin: "*" }));  // ✅ Allow all origins
 app.use(express.json());
+
+
+
+// const allowedOrigins = [
+//   process.env.FRONTEND_URL?.trim() || "https://matka-betting-consumer-hazel.vercel.app",
+//   "https://matka-betting-admin.vercel.app",
+//   "http://localhost:5173",
+//   "http://localhost:5174",
+// ];
+
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    console.log('Incoming Request Origin: ${origin}'); // ✅ Debugging Log
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("❌ Not allowed by CORS"));
+    }
+
+  },
+  credentials: true, // ✅ Allow cookies & authentication headers
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
+
+
 
 app.use("/api/users", userRoutes);
 app.use("/api/families", familyRoutes);
