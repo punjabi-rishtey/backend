@@ -13,6 +13,7 @@ const astrologyRoutes = require("./routes/astrologyRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 
 
+
 dotenv.config();
 connectDB();
 
@@ -22,12 +23,12 @@ app.use(express.json());
 
 
 
-// const allowedOrigins = [
-//   process.env.FRONTEND_URL?.trim() || "https://matka-betting-consumer-hazel.vercel.app",
-//   "https://matka-betting-admin.vercel.app",
-//   "http://localhost:5173",
-//   "http://localhost:5174",
-// ];
+const allowedOrigins = [
+  process.env.FRONTEND_URL?.trim() || "https://admin-frontend-punjabi-rishteys-projects.vercel.app/",
+  "https://admin-frontend-git-main-punjabi-rishteys-projects.vercel.app/",
+  "http://localhost:5173",
+  "http://localhost:5174",
+];
 
 
 const corsOptions = {

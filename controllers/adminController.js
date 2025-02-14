@@ -303,7 +303,4 @@ const getAllUsers = async (req, res) => {
 };
 
 
-
-
-
 module.exports = { registerAdmin, loginAdmin, getAdminDashboard, getUsersByStatus, getUsersByStatus, approveUser, blockUser, editUser, addUserFromAdmin, getUserRegistrationsPerMonth, getUserStatusCounts, getAllUsers}
