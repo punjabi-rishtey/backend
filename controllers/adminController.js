@@ -287,7 +287,23 @@ const getUserStatusCounts = async (req, res) => {
   }
 };
 
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find()
+      .populate("family_details")
+      .populate("education_details")
+      .populate("profession_details")
+      .populate("astrology_details");
+
+    res.json(users);
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
 
 
 
-module.exports = { registerAdmin, loginAdmin, getAdminDashboard, getUsersByStatus, getUsersByStatus, approveUser, blockUser, editUser, addUserFromAdmin, getUserRegistrationsPerMonth, getUserStatusCounts}
+
+
+module.exports = { registerAdmin, loginAdmin, getAdminDashboard, getUsersByStatus, getUsersByStatus, approveUser, blockUser, editUser, addUserFromAdmin, getUserRegistrationsPerMonth, getUserStatusCounts, getAllUsers}
