@@ -26,6 +26,8 @@ app.use(express.json());
 const allowedOrigins = [
   process.env.FRONTEND_URL?.trim() || "https://admin-frontend-punjabi-rishteys-projects.vercel.app/",
   "https://admin-frontend-git-main-punjabi-rishteys-projects.vercel.app/",
+  "https://admin-frontend-two-vert.vercel.app/",
+
   "http://localhost:5173",
   "http://localhost:5174",
 ];
