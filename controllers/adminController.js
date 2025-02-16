@@ -178,6 +178,49 @@ const editUser = async (req, res) => {
 };
 
 
+// ✅ Get user details by ID
+// const getUserById = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const user = await User.findById(id).select("-password"); // Exclude password field
+
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     res.json(user);
+//   } catch (error) {
+//     console.error("Error fetching user details:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
+const getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id)
+      .select("-password") // Exclude password field
+      .populate({ path: "family", strictPopulate: false }) // ✅ Properly populate
+      .populate({ path: "education", strictPopulate: false }) // ✅ Properly populate
+      .populate({ path: "profession", strictPopulate: false }) // ✅ Properly populate
+      .populate({ path: "astrology", strictPopulate: false }); // ✅ Properly populate
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("Error fetching user details:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+
+
+
+
 const addUserFromAdmin = async (req, res) => {
   try {
     const { name, email, password, mobile, gender, dob, religion, marital_status } = req.body;
@@ -332,4 +375,4 @@ const getAllInquiries = async (req, res) => {
   }
 };
 
-module.exports = { registerAdmin, loginAdmin, getAdminDashboard, getUsersByStatus, getUsersByStatus, approveUser, blockUser, editUser, addUserFromAdmin, getUserRegistrationsPerMonth, getUserStatusCounts, getAllUsers, getAllInquiries, submitInquiry}
+module.exports = { registerAdmin, loginAdmin, getAdminDashboard, getUsersByStatus, getUsersByStatus, approveUser, blockUser, editUser, addUserFromAdmin, getUserRegistrationsPerMonth, getUserStatusCounts, getAllUsers, getAllInquiries, submitInquiry, getUserById}

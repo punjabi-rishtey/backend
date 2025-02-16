@@ -25,6 +25,51 @@ const crypto = require("crypto");
 // };
 
 
+// const registerUser = async (req, res) => {
+//   try {
+//     const { name, email, password, mobile, gender, dob, religion, marital_status } = req.body;
+
+//     // ✅ Check if all required fields are provided
+//     if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status) {
+//       return res.status(400).json({ message: "All required fields must be provided." });
+//     }
+
+//     // ✅ Check if email is valid
+//     if (!validator.isEmail(email)) {
+//       return res.status(400).json({ message: "Invalid email format" });
+//     }
+
+    
+
+//     // ✅ Check if password is strong
+//     if (!validator.isStrongPassword(password, { minLength: 8, minNumbers: 1, minUppercase: 1, minSymbols: 1 })) {
+//       return res.status(400).json({
+//         message: "Password must be at least 8 characters long, include a number, an uppercase letter, and a special symbol."
+//       });
+//     }
+
+//     // ✅ Ensure mobile number is exactly 10 digits
+//     if (!/^\d{10}$/.test(mobile)) {
+//       return res.status(400).json({ message: "Invalid mobile number. It must be 10 digits." });
+//     }
+
+//     // ✅ Check if email or mobile already exists
+//     const existingUser = await User.findOne({ $or: [{ email }, { mobile }] });
+//     if (existingUser) {
+//       return res.status(400).json({ message: "Email or Mobile number already exists." });
+//     }
+
+//     // ✅ Save new user
+//     const user = new User({ ...req.body, status: "Pending" });
+//     await user.save();
+
+//     res.status(201).json({ message: "User Registered Successfully" });
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
 const registerUser = async (req, res) => {
   try {
     const { name, email, password, mobile, gender, dob, religion, marital_status } = req.body;
@@ -38,8 +83,6 @@ const registerUser = async (req, res) => {
     if (!validator.isEmail(email)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
-
-    
 
     // ✅ Check if password is strong
     if (!validator.isStrongPassword(password, { minLength: 8, minNumbers: 1, minUppercase: 1, minSymbols: 1 })) {
@@ -59,15 +102,41 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: "Email or Mobile number already exists." });
     }
 
-    // ✅ Save new user
-    const user = new User({ ...req.body, status: "Pending" });
+    // ✅ Create the user
+    const user = new User({ name, email, password, mobile, gender, dob, religion, marital_status });
     await user.save();
 
-    res.status(201).json({ message: "User Registered Successfully" });
+    // ✅ Create related documents and store references in user document
+    const family = new Family({ user: user._id });
+    const education = new Education({ user: user._id });
+    const profession = new Profession({ user: user._id });
+    const astrology = new Astrology({ user: user._id });
+
+    await Promise.all([family.save(), education.save(), profession.save(), astrology.save()]);
+
+    // ✅ Update user with references
+    user.family = family._id;
+    user.education = education._id;
+    user.profession = profession._id;
+    user.astrology = astrology._id;
+    await user.save();
+
+    res.status(201).json({ message: "User Registered Successfully", user });
   } catch (error) {
+    console.error("❌ Error registering user:", error);
     res.status(500).json({ error: error.message });
   }
 };
+
+
+
+
+
+
+
+
+
+
 
 
 

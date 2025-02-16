@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const familySchema = new mongoose.Schema({
-  user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // ✅ Matches User schema
   family_value: String,
   family_size: Number,
   mother: {

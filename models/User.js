@@ -57,11 +57,11 @@ const userSchema = new mongoose.Schema({
   profile_pictures: [{ type: String }],
 
   // ✅ Add References to Related Collections
-  family_details: { type: mongoose.Schema.Types.ObjectId, ref: "Family" },
-  education_details: { type: mongoose.Schema.Types.ObjectId, ref: "Education" },
-  profession_details: { type: mongoose.Schema.Types.ObjectId, ref: "Profession" },
-  astrology_details: { type: mongoose.Schema.Types.ObjectId, ref: "Astrology" },
-
+  family: { type: mongoose.Schema.Types.ObjectId, ref: "Family" },
+  education: { type: mongoose.Schema.Types.ObjectId, ref: "Education" },
+  profession: { type: mongoose.Schema.Types.ObjectId, ref: "Profession" },
+  astrology: { type: mongoose.Schema.Types.ObjectId, ref: "Astrology" },
+  
   is_deleted: { type: Boolean, default: false }
 
 });
