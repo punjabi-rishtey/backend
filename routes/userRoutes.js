@@ -65,7 +65,7 @@ const {
   uploadProfilePictures, 
   deleteProfilePicture, 
   logoutUser, 
-  forgotPassword, 
+  forgotPassword, submitInquiry,
   resetPassword 
 } = require("../controllers/userController");
 
@@ -362,6 +362,7 @@ router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:token", resetPassword);
 
 
+router.post("/inquiries/submit", submitInquiry);
 
 
 module.exports = router;

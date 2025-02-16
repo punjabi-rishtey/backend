@@ -207,9 +207,6 @@ const getUserById = async (req, res) => {
 
 
 
-
-
-
 // ✅ Add User from Admin
 const addUserFromAdmin = async (req, res) => {
   try {
@@ -253,11 +250,11 @@ const addUserFromAdmin = async (req, res) => {
       status: "Pending",
     });
 
-    // ✅ Save additional details in respective collections
-    const profession = await Profession.create({ user_id: newUser._id, ...profession_details });
-    const family = await Family.create({ user_id: newUser._id, ...family_details });
-    const education = await Education.create({ user_id: newUser._id, ...education_details });
-    const astrology = await Astrology.create({ user_id: newUser._id, ...astrology_details });
+    // ✅ Save additional details in respective collections with `user_name`
+    const profession = await Profession.create({ user: newUser._id, user_name: name, ...profession_details });
+    const family = await Family.create({ user: newUser._id, user_name: name, ...family_details });
+    const education = await Education.create({ user: newUser._id, user_name: name, ...education_details });
+    const astrology = await Astrology.create({ user: newUser._id, user_name: name, ...astrology_details });
 
     // ✅ Update User with reference IDs
     newUser.profession_details = profession._id;
@@ -274,6 +271,7 @@ const addUserFromAdmin = async (req, res) => {
 };
 
 module.exports = { addUserFromAdmin };
+
 
 
 
@@ -342,23 +340,6 @@ const getAllUsers = async (req, res) => {
 };
 
 
-// ✅ Submit Inquiry (User Side)
-const submitInquiry = async (req, res) => {
-  try {
-      const { name, email, phone, subject, message } = req.body;
-
-      if (!name || !email || !phone || !subject || !message) {
-          return res.status(400).json({ error: "All fields are required." });
-      }
-
-      const inquiry = new Inquiry({ name, email, phone, subject, message });
-      await inquiry.save();
-      res.status(201).json({ message: "Inquiry submitted successfully!" });
-
-  } catch (error) {
-      res.status(500).json({ error: "Server Error: Unable to submit inquiry." });
-  }
-};
 
 // ✅ Fetch All Inquiries (Admin Side)
 const getAllInquiries = async (req, res) => {
@@ -370,4 +351,4 @@ const getAllInquiries = async (req, res) => {
   }
 };
 
-module.exports = { registerAdmin, loginAdmin, getAdminDashboard, getUsersByStatus, getUsersByStatus, approveUser, blockUser, editUser, addUserFromAdmin, getUserRegistrationsPerMonth, getUserStatusCounts, getAllUsers, getAllInquiries, submitInquiry, getUserById}
+module.exports = { registerAdmin, loginAdmin, getAdminDashboard, getUsersByStatus, getUsersByStatus, approveUser, blockUser, editUser, addUserFromAdmin, getUserRegistrationsPerMonth, getUserStatusCounts, getAllUsers, getAllInquiries, getUserById}

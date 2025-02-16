@@ -12,7 +12,7 @@ const addProfessionDetails = async (req, res) => {
 
 const getProfessionDetails = async (req, res) => {
   try {
-    const profession = await Profession.findOne({ user_id: req.params.userId });
+    const profession = await Profession.findOne({ user: req.params.userId });
     if (!profession) return res.status(404).json({ message: "Profession details not found" });
     res.json(profession);
   } catch (error) {

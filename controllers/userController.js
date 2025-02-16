@@ -68,30 +68,49 @@ const crypto = require("crypto");
 //     res.status(500).json({ error: error.message });
 //   }
 // };
-
-
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, mobile, gender, dob, religion, marital_status } = req.body;
+    const {
+      // User Fields
+      name, email, password, mobile, gender, dob, religion, marital_status,
+      height, caste, location, hobbies, mangalik, language, birth_details, 
+      physical_attributes, lifestyle,
 
-    // ✅ Check if all required fields are provided
-    if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status) {
+      // Family Fields
+      family_value, family_size, mother, father, siblings,
+
+      // Education Fields
+      education_level, education_field, qualification_details,
+
+      // Profession Fields
+      occupation, designation, working_with, working_as, income, work_address,
+
+      // Astrology Fields
+      rashi_nakshatra, gotra, gotra_mama
+    } = req.body;
+
+    // ✅ Ensure all required fields are provided
+    if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status ||
+        !family_value || !family_size || !mother || !father || !siblings ||
+        !education_level || !education_field || !qualification_details ||
+        !occupation || !designation || !working_with || !working_as || !income || !work_address ||
+        !rashi_nakshatra || !gotra || !gotra_mama) {
       return res.status(400).json({ message: "All required fields must be provided." });
     }
 
-    // ✅ Check if email is valid
+    // ✅ Validate email format
     if (!validator.isEmail(email)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    // ✅ Check if password is strong
+    // ✅ Validate password strength
     if (!validator.isStrongPassword(password, { minLength: 8, minNumbers: 1, minUppercase: 1, minSymbols: 1 })) {
       return res.status(400).json({
         message: "Password must be at least 8 characters long, include a number, an uppercase letter, and a special symbol."
       });
     }
 
-    // ✅ Ensure mobile number is exactly 10 digits
+    // ✅ Validate mobile number format
     if (!/^\d{10}$/.test(mobile)) {
       return res.status(400).json({ message: "Invalid mobile number. It must be 10 digits." });
     }
@@ -102,16 +121,21 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: "Email or Mobile number already exists." });
     }
 
-    // ✅ Create the user
-    const user = new User({ name, email, password, mobile, gender, dob, religion, marital_status });
+    // ✅ Create the user document
+    const user = new User({
+      name, email, password, mobile, gender, dob, religion, marital_status, height, caste, 
+      location, hobbies, mangalik, language, birth_details, physical_attributes, lifestyle,
+      status: "Pending"
+    });
     await user.save();
 
-    // ✅ Create related documents and store references in user document
-    const family = new Family({ user: user._id });
-    const education = new Education({ user: user._id });
-    const profession = new Profession({ user: user._id });
-    const astrology = new Astrology({ user: user._id });
+    // ✅ Create related documents with `user_name`
+    const family = new Family({ user: user._id, user_name: name, family_value, family_size, mother, father, siblings });
+    const education = new Education({ user: user._id, user_name: name, education_level, education_field, qualification_details });
+    const profession = new Profession({ user: user._id, user_name: name, occupation, designation, working_with, working_as, income, work_address });
+    const astrology = new Astrology({ user: user._id, user_name: name, rashi_nakshatra, gotra, gotra_mama });
 
+    // ✅ Save related documents
     await Promise.all([family.save(), education.save(), profession.save(), astrology.save()]);
 
     // ✅ Update user with references
@@ -127,11 +151,6 @@ const registerUser = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-
-
-
-
 
 
 
@@ -459,6 +478,25 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// ✅ Submit Inquiry (User Side)
+const submitInquiry = async (req, res) => {
+  try {
+      const { name, email, phone, subject, message } = req.body;
+
+      if (!name || !email || !phone || !subject || !message) {
+          return res.status(400).json({ error: "All fields are required." });
+      }
+
+      const inquiry = new Inquiry({ name, email, phone, subject, message });
+      await inquiry.save();
+      res.status(201).json({ message: "Inquiry submitted successfully!" });
+
+  } catch (error) {
+      res.status(500).json({ error: "Server Error: Unable to submit inquiry." });
+  }
+};
 
 
-module.exports = { registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword };
+
+
+module.exports = { registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword, submitInquiry };
