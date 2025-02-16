@@ -243,6 +243,8 @@ const addUserFromAdmin = async (req, res) => {
     // ✅ Hash password before saving
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    console.log(req.body);
+
     // ✅ Save user
     const newUser = await User.create({
       name, email, password: hashedPassword, mobile, gender, dob, religion, marital_status,
