@@ -327,10 +327,10 @@ const getUserStatusCounts = async (req, res) => {
 const getAllUsers = async (req, res) => {
   try {
     const users = await User.find()
-      .populate("family_details")
-      .populate("education_details")
-      .populate("profession_details")
-      .populate("astrology_details");
+      .populate("family")
+      .populate("education")
+      .populate("profession")
+      .populate("astrology");
 
     res.json(users);
   } catch (error) {
