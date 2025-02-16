@@ -40,6 +40,7 @@ const corsOptions = {
       callback(new Error("❌ Not allowed by CORS"));
     }
 
+
   },
   credentials: true, // ✅ Allow cookies & authentication headers
   methods: ["GET", "POST", "PUT", "DELETE"],
