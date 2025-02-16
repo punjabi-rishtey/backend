@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const astrologySchema = new mongoose.Schema({
-  user_id: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // ✅ Matches User schema
   rashi_nakshatra: String,
   gotra: String,
   gotra_mama: String,
