@@ -12,7 +12,7 @@ const addEducationDetails = async (req, res) => {
 
 const getEducationDetails = async (req, res) => {
   try {
-    const education = await Education.findOne({ user_id: req.params.userId });
+    const education = await Education.findOne({ user: req.params.userId });
     if (!education) return res.status(404).json({ message: "Education details not found" });
     res.json(education);
   } catch (error) {

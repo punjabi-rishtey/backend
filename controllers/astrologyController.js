@@ -12,7 +12,7 @@ const addAstrologyDetails = async (req, res) => {
 
 const getAstrologyDetails = async (req, res) => {
   try {
-    const astrology = await Astrology.findOne({ user_id: req.params.userId });
+    const astrology = await Astrology.findOne({ user: req.params.userId });
     if (!astrology) return res.status(404).json({ message: "Astrology details not found" });
     res.json(astrology);
   } catch (error) {
