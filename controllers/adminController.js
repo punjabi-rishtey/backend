@@ -4,6 +4,10 @@ const jwt = require("jsonwebtoken");
 const validator = require("validator");
 const Admin = require("../models/Admin"); // Ensure you have an Admin 
 const User = require("../models/User");
+const Profession = require("../models/Profession");
+const Family = require("../models/Family");
+const Education = require("../models/Education");
+const Astrology = require("../models/Astrology");
 const Inquiry = require("../models/inquiryModel");
 
 
@@ -178,21 +182,6 @@ const editUser = async (req, res) => {
 };
 
 
-// ✅ Get user details by ID
-// const getUserById = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const user = await User.findById(id).select("-password"); // Exclude password field
-
-//     if (!user) return res.status(404).json({ message: "User not found" });
-
-//     res.json(user);
-//   } catch (error) {
-//     console.error("Error fetching user details:", error);
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
 
 const getUserById = async (req, res) => {
   try {
@@ -221,55 +210,58 @@ const getUserById = async (req, res) => {
 
 
 
+// ✅ Add User from Admin
 const addUserFromAdmin = async (req, res) => {
   try {
-    const { name, email, password, mobile, gender, dob, religion, marital_status } = req.body;
+    const {
+      name, email, password, mobile, gender, dob, religion, marital_status,
+      height, caste, location, hobbies, mangalik, language,
+      birth_details, physical_attributes, lifestyle, family_details, profession_details,
+      education_details, astrology_details
+    } = req.body;
 
-    // ✅ Check if all required fields are provided
+    // ✅ Validate required fields
     if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status) {
       return res.status(400).json({ message: "All required fields must be provided." });
     }
 
-    // ✅ Check if email is valid
-    if (!validator.isEmail(email)) {
-      return res.status(400).json({ message: "Invalid email format" });
-    }
+    if (!validator.isEmail(email)) return res.status(400).json({ message: "Invalid email format" });
 
-    // ✅ Check if password is strong
     if (!validator.isStrongPassword(password, { minLength: 8, minNumbers: 1, minUppercase: 1, minSymbols: 1 })) {
       return res.status(400).json({
         message: "Password must be at least 8 characters long, include a number, an uppercase letter, and a special symbol."
       });
     }
 
-    // ✅ Ensure mobile number is exactly 10 digits
     if (!/^\d{10}$/.test(mobile)) {
       return res.status(400).json({ message: "Invalid mobile number. It must be 10 digits." });
     }
 
-    // ✅ Check if email or mobile already exists
     const existingUser = await User.findOne({ $or: [{ email }, { mobile }] });
-    if (existingUser) {
-      return res.status(400).json({ message: "Email or Mobile number already exists." });
-    }
+    if (existingUser) return res.status(400).json({ message: "Email or Mobile number already exists." });
 
     // ✅ Hash password before saving
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ Save new user
-    const newUser = new User({
-      name,
-      email,
-      password: hashedPassword,
-      mobile,
-      gender,
-      dob,
-      religion,
-      marital_status,
-      status: "Pending", // Default status will be Pending
+    // ✅ Save user
+    const newUser = await User.create({
+      name, email, password: hashedPassword, mobile, gender, dob, religion, marital_status,
+      height, caste, location, hobbies, mangalik, language,
+      birth_details, physical_attributes, lifestyle,
+      status: "Pending",
     });
 
+    // ✅ Save additional details in respective collections
+    const profession = await Profession.create({ user_id: newUser._id, ...profession_details });
+    const family = await Family.create({ user_id: newUser._id, ...family_details });
+    const education = await Education.create({ user_id: newUser._id, ...education_details });
+    const astrology = await Astrology.create({ user_id: newUser._id, ...astrology_details });
+
+    // ✅ Update User with reference IDs
+    newUser.profession_details = profession._id;
+    newUser.family_details = family._id;
+    newUser.education_details = education._id;
+    newUser.astrology_details = astrology._id;
     await newUser.save();
 
     res.status(201).json({ message: "User Added Successfully by Admin", user: newUser });
@@ -279,6 +271,7 @@ const addUserFromAdmin = async (req, res) => {
   }
 };
 
+module.exports = { addUserFromAdmin };
 
 
 
