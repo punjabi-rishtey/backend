@@ -85,6 +85,7 @@ const educationRoutes = require("./routes/educationRoutes");
 const professionRoutes = require("./routes/professionRoutes");
 const astrologyRoutes = require("./routes/astrologyRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const testimonialRoutes = require("./routes/testimonialRoutes"); // ✅ Added Testimonial Routes
 
 dotenv.config();
 connectDB();
@@ -98,6 +99,8 @@ const allowedOrigins = [
   "https://admin-frontend-two-vert.vercel.app",
   "http://localhost:5173",
   "http://localhost:5174",
+  "http://localhost:8080"
+
 ];
 
 const corsOptions = {
@@ -127,6 +130,7 @@ app.use("/api/educations", educationRoutes);
 app.use("/api/professions", professionRoutes);
 app.use("/api/astrologies", astrologyRoutes);
 app.use("/api/admin/auth", adminRoutes);
+app.use("/api/testimonials", testimonialRoutes); // ✅ Added Testimonial Routes
 
 app.get("/", (req, res) => {
   res.send("🚀 API is running...");
