@@ -20,12 +20,32 @@ const getProfessionDetails = async (req, res) => {
   }
 };
 
+// const updateProfessionDetails = async (req, res) => {
+//   try {
+//     const userId = req.params.userId;
+
+//     // Find and update the profession details
+//     const updatedProfession = await Profession.findOneAndUpdate({ user_id: userId }, req.body, {
+//       new: true,
+//       runValidators: true
+//     });
+
+//     if (!updatedProfession) return res.status(404).json({ message: "Profession details not found" });
+
+//     res.json({ message: "Profession details updated successfully", profession: updatedProfession });
+//   } catch (error) {
+//     console.error("Error updating profession details:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
 const updateProfessionDetails = async (req, res) => {
   try {
     const userId = req.params.userId;
 
     // Find and update the profession details
-    const updatedProfession = await Profession.findOneAndUpdate({ user_id: userId }, req.body, {
+    const updatedProfession = await Profession.findOneAndUpdate({ user: userId }, req.body, {
       new: true,
       runValidators: true
     });
@@ -38,5 +58,6 @@ const updateProfessionDetails = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 module.exports = { addProfessionDetails, getProfessionDetails, updateProfessionDetails};

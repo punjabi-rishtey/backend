@@ -3,6 +3,7 @@ const Family = require("../models/Family");
 const Education = require("../models/Education");  
 const Profession = require("../models/Profession");  
 const Astrology = require("../models/Astrology");  
+const Preference = require("../models/Preference");  // ✅ Added Preference Model
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const path = require("path");
@@ -70,34 +71,106 @@ const Inquiry = require("../models/inquiryModel");
 //     res.status(500).json({ error: error.message });
 //   }
 // };
+
+
+
+// const registerUser = async (req, res) => {
+//   try {
+//     const {
+//       // User Fields
+//       name, email, password, mobile, gender, dob, religion, marital_status,
+//       height, caste, location, hobbies, mangalik, language, birth_details, 
+//       physical_attributes, lifestyle,
+
+//       // Family Fields
+//       family_value, family_size, mother, father, siblings,
+
+//       // Education Fields
+//       education_level, education_field, qualification_details,
+
+//       // Profession Fields
+//       occupation, designation, working_with, working_as, income, work_address,
+
+//       // Astrology Fields
+//       rashi_nakshatra, gotra, gotra_mama
+//     } = req.body;
+
+//     // ✅ Ensure all required fields are provided
+//     if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status ||
+//         !family_value || !family_size || !mother || !father || !siblings ||
+//         !education_level || !education_field || !qualification_details ||
+//         !occupation || !designation || !working_with || !working_as || !income || !work_address ||
+//         !rashi_nakshatra || !gotra || !gotra_mama) {
+//       return res.status(400).json({ message: "All required fields must be provided." });
+//     }
+
+//     // ✅ Validate email format
+//     if (!validator.isEmail(email)) {
+//       return res.status(400).json({ message: "Invalid email format" });
+//     }
+
+//     // ✅ Validate password strength
+//     if (!validator.isStrongPassword(password, { minLength: 8, minNumbers: 1, minUppercase: 1, minSymbols: 1 })) {
+//       return res.status(400).json({
+//         message: "Password must be at least 8 characters long, include a number, an uppercase letter, and a special symbol."
+//       });
+//     }
+
+//     // ✅ Validate mobile number format
+//     if (!/^\d{10}$/.test(mobile)) {
+//       return res.status(400).json({ message: "Invalid mobile number. It must be 10 digits." });
+//     }
+
+//     // ✅ Check if email or mobile already exists
+//     const existingUser = await User.findOne({ $or: [{ email }, { mobile }] });
+//     if (existingUser) {
+//       return res.status(400).json({ message: "Email or Mobile number already exists." });
+//     }
+
+//     // ✅ Create the user document
+//     const user = new User({
+//       name, email, password, mobile, gender, dob, religion, marital_status, height, caste, 
+//       location, hobbies, mangalik, language, birth_details, physical_attributes, lifestyle,
+//       status: "Pending"
+//     });
+//     await user.save();
+
+//     // ✅ Create related documents with `user_name`
+//     const family = new Family({ user: user._id, user_name: name, family_value, family_size, mother, father, siblings });
+//     const education = new Education({ user: user._id, user_name: name, education_level, education_field, qualification_details });
+//     const profession = new Profession({ user: user._id, user_name: name, occupation, designation, working_with, working_as, income, work_address });
+//     const astrology = new Astrology({ user: user._id, user_name: name, rashi_nakshatra, gotra, gotra_mama });
+
+//     // ✅ Save related documents
+//     await Promise.all([family.save(), education.save(), profession.save(), astrology.save()]);
+
+//     // ✅ Update user with references
+//     user.family = family._id;
+//     user.education = education._id;
+//     user.profession = profession._id;
+//     user.astrology = astrology._id;
+//     await user.save();
+
+//     res.status(201).json({ message: "User Registered Successfully", user });
+//   } catch (error) {
+//     console.error("❌ Error registering user:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
 const registerUser = async (req, res) => {
   try {
     const {
-      // User Fields
+      // Required User Fields
       name, email, password, mobile, gender, dob, religion, marital_status,
-      height, caste, location, hobbies, mangalik, language, birth_details, 
-      physical_attributes, lifestyle,
 
-      // Family Fields
-      family_value, family_size, mother, father, siblings,
-
-      // Education Fields
-      education_level, education_field, qualification_details,
-
-      // Profession Fields
-      occupation, designation, working_with, working_as, income, work_address,
-
-      // Astrology Fields
-      rashi_nakshatra, gotra, gotra_mama
+      // Preferences (New Addition)
+      preferences
     } = req.body;
 
-    // ✅ Ensure all required fields are provided
-    if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status ||
-        !family_value || !family_size || !mother || !father || !siblings ||
-        !education_level || !education_field || !qualification_details ||
-        !occupation || !designation || !working_with || !working_as || !income || !work_address ||
-        !rashi_nakshatra || !gotra || !gotra_mama) {
-      return res.status(400).json({ message: "All required fields must be provided." });
+    // ✅ Ensure required fields are provided
+    if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status || !preferences || preferences.length !== 3) {
+      return res.status(400).json({ message: "All required fields including exactly 3 preferences must be provided." });
     }
 
     // ✅ Validate email format
@@ -123,21 +196,32 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: "Email or Mobile number already exists." });
     }
 
+    // ✅ Hash the password before storing
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     // ✅ Create the user document
     const user = new User({
-      name, email, password, mobile, gender, dob, religion, marital_status, height, caste, 
-      location, hobbies, mangalik, language, birth_details, physical_attributes, lifestyle,
+      name, email, password: hashedPassword, mobile, gender, dob, religion, marital_status,
       status: "Pending"
     });
+
     await user.save();
 
-    // ✅ Create related documents with `user_name`
-    const family = new Family({ user: user._id, user_name: name, family_value, family_size, mother, father, siblings });
-    const education = new Education({ user: user._id, user_name: name, education_level, education_field, qualification_details });
-    const profession = new Profession({ user: user._id, user_name: name, occupation, designation, working_with, working_as, income, work_address });
-    const astrology = new Astrology({ user: user._id, user_name: name, rashi_nakshatra, gotra, gotra_mama });
+    // ✅ Create the Preference document and link it to the user
+    const preference = new Preference({
+      user: user._id,
+      preferences: preferences  // Store the selected preferences
+    });
 
-    // ✅ Save related documents
+    await preference.save();
+
+    // ✅ Create related empty documents with `user_name`
+    const family = new Family({ user: user._id, user_name: name });
+    const education = new Education({ user: user._id, user_name: name });
+    const profession = new Profession({ user: user._id, user_name: name });
+    const astrology = new Astrology({ user: user._id, user_name: name });
+
+    // ✅ Save related empty documents
     await Promise.all([family.save(), education.save(), profession.save(), astrology.save()]);
 
     // ✅ Update user with references
@@ -145,6 +229,7 @@ const registerUser = async (req, res) => {
     user.education = education._id;
     user.profession = profession._id;
     user.astrology = astrology._id;
+    user.preferences = preference._id; // ✅ Store Preference reference in User
     await user.save();
 
     res.status(201).json({ message: "User Registered Successfully", user });
@@ -153,8 +238,6 @@ const registerUser = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-
 
 
 

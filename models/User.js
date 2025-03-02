@@ -61,6 +61,8 @@ const userSchema = new mongoose.Schema({
   education: { type: mongoose.Schema.Types.ObjectId, ref: "Education" },
   profession: { type: mongoose.Schema.Types.ObjectId, ref: "Profession" },
   astrology: { type: mongoose.Schema.Types.ObjectId, ref: "Astrology" },
+  preferences: { type: mongoose.Schema.Types.ObjectId, ref: "Preference" }, // ✅ Added reference to `Preference`
+
   
   is_deleted: { type: Boolean, default: false }
 
