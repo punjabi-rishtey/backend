@@ -66,7 +66,7 @@ const {
   deleteProfilePicture, 
   logoutUser, 
   forgotPassword, submitInquiry,
-  resetPassword 
+  resetPassword
 } = require("../controllers/userController");
 
 const protect = require("../middleware/authMiddleware");
@@ -363,6 +363,9 @@ router.post("/reset-password/:token", resetPassword);
 
 
 router.post("/inquiries/submit", submitInquiry);
+
+
+
 
 
 module.exports = router;

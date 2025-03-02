@@ -11,6 +11,8 @@ const fs = require("fs");
 const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 
+const Inquiry = require("../models/inquiryModel");
+
 
 
 
