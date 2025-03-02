@@ -26,12 +26,33 @@ const getFamilyDetails = async (req, res) => {
 };
 
 
+// const updateFamilyDetails = async (req, res) => {
+//   try {
+//     const userId = req.params.userId;
+
+//     // Find and update the family details
+//     const updatedFamily = await Family.findOneAndUpdate({ user_id: userId }, req.body, {
+//       new: true,
+//       runValidators: true
+//     });
+
+//     if (!updatedFamily) return res.status(404).json({ message: "Family details not found" });
+
+//     res.json({ message: "Family details updated successfully", family: updatedFamily });
+//   } catch (error) {
+//     console.error("Error updating family details:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
+
 const updateFamilyDetails = async (req, res) => {
   try {
     const userId = req.params.userId;
 
     // Find and update the family details
-    const updatedFamily = await Family.findOneAndUpdate({ user_id: userId }, req.body, {
+    const updatedFamily = await Family.findOneAndUpdate({ user: userId }, req.body, {
       new: true,
       runValidators: true
     });

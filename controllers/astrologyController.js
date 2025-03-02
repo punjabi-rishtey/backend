@@ -20,23 +20,46 @@ const getAstrologyDetails = async (req, res) => {
   }
 };
 
+// const updateAstrologyDetails = async (req, res) => {
+//     try {
+//       const userId = req.params.userId;
+  
+//       // Find and update the astrology details
+//       const updatedAstrology = await Astrology.findOneAndUpdate({ user_id: userId }, req.body, {
+//         new: true,
+//         runValidators: true
+//       });
+  
+//       if (!updatedAstrology) return res.status(404).json({ message: "Astrology details not found" });
+  
+//       res.json({ message: "Astrology details updated successfully", astrology: updatedAstrology });
+//     } catch (error) {
+//       console.error("Error updating astrology details:", error);
+//       res.status(500).json({ error: error.message });
+//     }
+//   };
+
+
+
+
 const updateAstrologyDetails = async (req, res) => {
-    try {
-      const userId = req.params.userId;
-  
-      // Find and update the astrology details
-      const updatedAstrology = await Astrology.findOneAndUpdate({ user_id: userId }, req.body, {
-        new: true,
-        runValidators: true
-      });
-  
-      if (!updatedAstrology) return res.status(404).json({ message: "Astrology details not found" });
-  
-      res.json({ message: "Astrology details updated successfully", astrology: updatedAstrology });
-    } catch (error) {
-      console.error("Error updating astrology details:", error);
-      res.status(500).json({ error: error.message });
-    }
-  };
+  try {
+    const userId = req.params.userId;
+
+    // Find and update the astrology details
+    const updatedAstrology = await Astrology.findOneAndUpdate({ user: userId }, req.body, {
+      new: true,
+      runValidators: true
+    });
+
+    if (!updatedAstrology) return res.status(404).json({ message: "Astrology details not found" });
+
+    res.json({ message: "Astrology details updated successfully", astrology: updatedAstrology });
+  } catch (error) {
+    console.error("Error updating astrology details:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 
 module.exports = { addAstrologyDetails, getAstrologyDetails , updateAstrologyDetails};
