@@ -302,7 +302,6 @@ router.get("/users", adminAuth, getAllUsers);
 
 
 
-// ✅ Admin Fetches All Inquiries
 router.get("/inquiries/all", adminAuth, getAllInquiries);
 
 
