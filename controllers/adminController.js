@@ -9,6 +9,7 @@ const Family = require("../models/Family");
 const Education = require("../models/Education");
 const Astrology = require("../models/Astrology");
 const Inquiry = require("../models/inquiryModel");
+const Preference = require("../models/Preference");
 
 
 require("dotenv").config();
@@ -206,61 +207,54 @@ const getUserById = async (req, res) => {
 };
 
 
-
 // ✅ Add User from Admin
 const addUserFromAdmin = async (req, res) => {
   try {
-    const {
-      name, email, password, mobile, gender, dob, religion, marital_status,
-      height, caste, location, hobbies, mangalik, language,
-      birth_details, physical_attributes, lifestyle, family_details, profession_details,
-      education_details, astrology_details
-    } = req.body;
+    const { name, email, password, mobile, gender, dob, religion, marital_status, preferences } = req.body;
 
     // ✅ Validate required fields
-    if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status) {
-      return res.status(400).json({ message: "All required fields must be provided." });
+    if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status || !preferences) {
+      return res.status(400).json({ message: "All required fields must be provided, including preferences." });
     }
 
-    if (!validator.isEmail(email)) return res.status(400).json({ message: "Invalid email format" });
-
-    if (!validator.isStrongPassword(password, { minLength: 8, minNumbers: 1, minUppercase: 1, minSymbols: 1 })) {
-      return res.status(400).json({
-        message: "Password must be at least 8 characters long, include a number, an uppercase letter, and a special symbol."
-      });
+    if (!preferences.preference1 || !preferences.preference2 || !preferences.preference3) {
+      return res.status(400).json({ message: "All three preferences must be selected." });
     }
 
-    if (!/^\d{10}$/.test(mobile)) {
-      return res.status(400).json({ message: "Invalid mobile number. It must be 10 digits." });
-    }
-
+    // ✅ Check if user already exists
     const existingUser = await User.findOne({ $or: [{ email }, { mobile }] });
-    if (existingUser) return res.status(400).json({ message: "Email or Mobile number already exists." });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email or Mobile number already exists." });
+    }
 
     // ✅ Hash password before saving
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    console.log(req.body);
+    console.log("Request Body:", req.body);
 
-    // ✅ Save user
+    // ✅ Create new user
     const newUser = await User.create({
-      name, email, password: hashedPassword, mobile, gender, dob, religion, marital_status,
-      height, caste, location, hobbies, mangalik, language,
-      birth_details, physical_attributes, lifestyle,
-      status: "Pending",
+      name,
+      email,
+      password: hashedPassword,
+      mobile,
+      gender,
+      dob,
+      religion,
+      marital_status,
+      status: "Pending"
     });
 
-    // ✅ Save additional details in respective collections with `user_name`
-    const profession = await Profession.create({ user: newUser._id, user_name: name, ...profession_details });
-    const family = await Family.create({ user: newUser._id, user_name: name, ...family_details });
-    const education = await Education.create({ user: newUser._id, user_name: name, ...education_details });
-    const astrology = await Astrology.create({ user: newUser._id, user_name: name, ...astrology_details });
+    // ✅ Save Preferences
+    const preferenceDoc = await Preference.create({
+      user: newUser._id,
+      preference1: preferences.preference1,
+      preference2: preferences.preference2,
+      preference3: preferences.preference3
+    });
 
-    // ✅ Update User with reference IDs
-    newUser.profession_details = profession._id;
-    newUser.family_details = family._id;
-    newUser.education_details = education._id;
-    newUser.astrology_details = astrology._id;
+    // ✅ Link Preferences to User
+    newUser.preferences = preferenceDoc._id;
     await newUser.save();
 
     res.status(201).json({ message: "User Added Successfully by Admin", user: newUser });
@@ -269,10 +263,6 @@ const addUserFromAdmin = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-module.exports = { addUserFromAdmin };
-
-
 
 
 // 📌 API to Get User Registrations Per Month (Last 6 Months)
@@ -338,7 +328,6 @@ const getAllUsers = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
-
 
 
 // ✅ Fetch All Inquiries (Admin Side)
