@@ -166,19 +166,21 @@ const blockUser = async (req, res) => {
   }
 };
 
-// ✅ 4. Edit user details
+
 const editUser = async (req, res) => {
   try {
-    const { id } = req.params;
-    const updates = req.body;
+    const { id } = req.params;  // Extracting user ID from request params
+    const updates = req.body;   // Extracting the updated user details from request body
 
+    // Finding the user by ID and updating the provided fields
     const user = await User.findByIdAndUpdate(id, updates, { new: true }).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found" });
+    
+    if (!user) return res.status(404).json({ message: "User not found" }); // Handle case if user doesn't exist
 
-    res.json({ message: "User updated successfully", user });
+    res.json({ message: "User updated successfully", user }); // Send success response
   } catch (error) {
     console.error("Error editing user:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message }); // Handle errors
   }
 };
 
