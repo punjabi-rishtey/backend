@@ -158,78 +158,61 @@ const Inquiry = require("../models/inquiryModel");
 //   }
 // };
 
+
 const registerUser = async (req, res) => {
   try {
-    const {
-      // Required User Fields
-      name, email, password, mobile, gender, dob, religion, marital_status,
+    const { name, email, password, mobile, gender, dob, religion, marital_status, preferences } = req.body;
 
-      // Preferences (New Addition)
-      preferences
-    } = req.body;
-
-    // ✅ Ensure required fields are provided
-    if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status || !preferences || preferences.length !== 3) {
-      return res.status(400).json({ message: "All required fields including exactly 3 preferences must be provided." });
+    if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status || !preferences) {
+      return res.status(400).json({ message: "All required fields must be provided." });
     }
 
-    // ✅ Validate email format
+    if (!Array.isArray(preferences) || preferences.length !== 3) {
+      return res.status(400).json({ message: "You must select exactly 3 preferences." });
+    }
+
     if (!validator.isEmail(email)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    // ✅ Validate password strength
-    if (!validator.isStrongPassword(password, { minLength: 8, minNumbers: 1, minUppercase: 1, minSymbols: 1 })) {
-      return res.status(400).json({
-        message: "Password must be at least 8 characters long, include a number, an uppercase letter, and a special symbol."
-      });
-    }
-
-    // ✅ Validate mobile number format
     if (!/^\d{10}$/.test(mobile)) {
       return res.status(400).json({ message: "Invalid mobile number. It must be 10 digits." });
     }
 
-    // ✅ Check if email or mobile already exists
     const existingUser = await User.findOne({ $or: [{ email }, { mobile }] });
     if (existingUser) {
       return res.status(400).json({ message: "Email or Mobile number already exists." });
     }
 
-    // ✅ Hash the password before storing
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // ✅ Create the user document
+    // ✅ Create the user document (Remove password hashing here!)
     const user = new User({
-      name, email, password: hashedPassword, mobile, gender, dob, religion, marital_status,
+      name, email, password, mobile, gender, dob, religion, marital_status,
       status: "Pending"
     });
 
     await user.save();
 
-    // ✅ Create the Preference document and link it to the user
+    // ✅ Store preferences in the Preference model
     const preference = new Preference({
       user: user._id,
-      preferences: preferences  // Store the selected preferences
+      preference1: preferences[0],
+      preference2: preferences[1],
+      preference3: preferences[2]
     });
-
     await preference.save();
 
-    // ✅ Create related empty documents with `user_name`
     const family = new Family({ user: user._id, user_name: name });
     const education = new Education({ user: user._id, user_name: name });
     const profession = new Profession({ user: user._id, user_name: name });
     const astrology = new Astrology({ user: user._id, user_name: name });
 
-    // ✅ Save related empty documents
     await Promise.all([family.save(), education.save(), profession.save(), astrology.save()]);
 
-    // ✅ Update user with references
     user.family = family._id;
     user.education = education._id;
     user.profession = profession._id;
     user.astrology = astrology._id;
-    user.preferences = preference._id; // ✅ Store Preference reference in User
+    user.preferences = preference._id;
     await user.save();
 
     res.status(201).json({ message: "User Registered Successfully", user });
@@ -238,6 +221,7 @@ const registerUser = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 
 
@@ -259,6 +243,7 @@ const registerUser = async (req, res) => {
 //     res.status(500).json({ error: error.message });
 //   }
 // };
+
 
 const loginUser = async (req, res) => {
   try {
