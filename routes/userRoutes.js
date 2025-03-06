@@ -64,7 +64,7 @@ const {
   updateUserProfile, 
   uploadProfilePictures, 
   deleteProfilePicture, 
-  logoutUser, 
+  logoutUser,
   forgotPassword, submitInquiry,
   resetPassword
 } = require("../controllers/userController");

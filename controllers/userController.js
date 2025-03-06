@@ -299,33 +299,75 @@ const searchMatches = async (req, res) => {
 
 
 
+// const getUserProfile = async (req, res) => {
+//   try {
+//     const user = await User.findById(req.params.id).select("-password"); // Exclude password
+//     if (!user) return res.status(404).json({ message: "User Not Found" });
+
+//     // ✅ Manually fetch related data
+//     const family = await Family.findOne({ user_id: req.params.id });
+//     const education = await Education.findOne({ user_id: req.params.id });
+//     const profession = await Profession.findOne({ user_id: req.params.id });
+//     const astrology = await Astrology.findOne({ user_id: req.params.id });
+
+//     const profilePicUrl = user.profile_picture ? `${req.protocol}://${req.get("host")}${user.profile_picture}` : null;
+
+//     // ✅ Ensure `profile_pictures` is always an array (avoid undefined errors)
+//     const profilePicturesUrls = Array.isArray(user.profile_pictures) 
+//       ? user.profile_pictures.map(pic => `${req.protocol}://${req.get("host")}${pic}`)
+//       : [];
+
+//     // ✅ Attach related data to user response
+//     const userProfile = {
+//       ...user.toObject(), // Convert Mongoose document to plain object
+//       profile_picture: profilePicUrl,
+//       profile_pictures: profilePicturesUrls, // Multiple pics
+//       family_details: family || null,
+//       education_details: education || null,
+//       profession_details: profession || null,
+//       astrology_details: astrology || null
+//     };
+
+//     res.json(userProfile);
+//   } catch (error) {
+//     console.error("Error fetching user profile:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
+
 const getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select("-password"); // Exclude password
-    if (!user) return res.status(404).json({ message: "User Not Found" });
+    const userId = req.params.id;
 
-    // ✅ Manually fetch related data
-    const family = await Family.findOne({ user_id: req.params.id });
-    const education = await Education.findOne({ user_id: req.params.id });
-    const profession = await Profession.findOne({ user_id: req.params.id });
-    const astrology = await Astrology.findOne({ user_id: req.params.id });
+    // Fetch user details and exclude password
+    const user = await User.findById(userId).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User Not Found" });
+    }
 
-    const profilePicUrl = user.profile_picture ? `${req.protocol}://${req.get("host")}${user.profile_picture}` : null;
+    // Fetch related data using manual queries (for better control)
+    const [family, education, profession, astrology] = await Promise.all([
+      Family.findOne({ user: userId }) || {}, // If not found, return empty object
+      Education.findOne({ user: userId }) || {},
+      Profession.findOne({ user: userId }) || {},
+      Astrology.findOne({ user: userId }) || {}
+    ]);
 
-    // ✅ Ensure `profile_pictures` is always an array (avoid undefined errors)
-    const profilePicturesUrls = Array.isArray(user.profile_pictures) 
+    // Ensure `profile_pictures` is always an array (avoid undefined errors)
+    const profilePicturesUrls = Array.isArray(user.profile_pictures)
       ? user.profile_pictures.map(pic => `${req.protocol}://${req.get("host")}${pic}`)
       : [];
 
-    // ✅ Attach related data to user response
+    // ✅ Construct user profile response
     const userProfile = {
       ...user.toObject(), // Convert Mongoose document to plain object
-      profile_picture: profilePicUrl,
-      profile_pictures: profilePicturesUrls, // Multiple pics
-      family_details: family || null,
-      education_details: education || null,
-      profession_details: profession || null,
-      astrology_details: astrology || null
+      profile_pictures: profilePicturesUrls, // Multiple profile pictures
+      family_details: family, // Attach family details
+      education_details: education, // Attach education details
+      profession_details: profession, // Attach profession details
+      astrology_details: astrology // Attach astrology details
     };
 
     res.json(userProfile);
@@ -342,12 +384,7 @@ const updateUserProfile = async (req, res) => {
   try {
     const userId = req.params.id;
 
-    // Ensure that only the logged-in user can update their own profile
-    if (req.user.id !== userId) {
-      return res.status(403).json({ message: "Not authorized to update this profile" });
-    }
-
-    // Define allowed fields that users can update
+    // Define allowed fields for update
     const allowedUpdates = [
       "name", "gender", "dob", "height", "religion", "mobile",
       "email", "hobbies", "status", "mangalik", "language",
@@ -355,7 +392,7 @@ const updateUserProfile = async (req, res) => {
       "lifestyle", "location"
     ];
 
-    // Filter only the fields that are allowed to be updated
+    // Filter only allowed fields
     const updates = {};
     for (const key in req.body) {
       if (allowedUpdates.includes(key)) {
@@ -363,12 +400,31 @@ const updateUserProfile = async (req, res) => {
       }
     }
 
+    // Prevent duplicate mobile number error
+    if (updates.mobile) {
+      const existingUser = await User.findOne({ mobile: updates.mobile });
+      if (existingUser && existingUser._id.toString() !== userId) {
+        return res.status(400).json({ error: "Mobile number already in use." });
+      }
+    }
 
-    // Update user details in the database
+    // Fetch the current user before update
+    const currentUser = await User.findById(userId);
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Perform the update in the User collection
     const updatedUser = await User.findByIdAndUpdate(userId, updates, { new: true, runValidators: true }).select("-password");
 
-    if (!updatedUser) {
-      return res.status(404).json({ message: "User not found" });
+    // ✅ If name is updated, update related schemas
+    if (updates.name && updates.name !== currentUser.name) {
+      await Promise.all([
+        Education.updateMany({ user: userId }, { user_name: updates.name }),
+        Family.updateMany({ user: userId }, { user_name: updates.name }),
+        Profession.updateMany({ user: userId }, { user_name: updates.name }),
+        Astrology.updateMany({ user: userId }, { user_name: updates.name })
+      ]);
     }
 
     res.json({ message: "Profile updated successfully", user: updatedUser });
@@ -377,6 +433,9 @@ const updateUserProfile = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+
 
 const uploadProfilePictures = async (req, res) => {
   try {
@@ -569,4 +628,13 @@ const submitInquiry = async (req, res) => {
 
 
 
-module.exports = { registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword, submitInquiry };
+
+
+
+
+
+
+
+
+
+module.exports = { registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword, submitInquiry};
