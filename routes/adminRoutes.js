@@ -298,7 +298,7 @@ router.get("/dashboard/status-counts", adminAuth, getUserStatusCounts);
  *         description: Server error
  */
 
-router.get("/users", getAllUsers);
+router.get("/users", adminAuth, getAllUsers);
 
 
 

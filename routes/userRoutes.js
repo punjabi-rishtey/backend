@@ -66,13 +66,17 @@ const {
   deleteProfilePicture, 
   logoutUser,
   forgotPassword, submitInquiry,
-  resetPassword
+  resetPassword,
+  getAllBasicUserDetails
 } = require("../controllers/userController");
 
 const protect = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
 
 const router = express.Router();
+
+// New route to fetch basic details of all users
+router.get("/all-basic", getAllBasicUserDetails);
 
 /**
  * @swagger
@@ -363,9 +367,6 @@ router.post("/reset-password/:token", resetPassword);
 
 
 router.post("/inquiries/submit", submitInquiry);
-
-
-
 
 
 module.exports = router;
