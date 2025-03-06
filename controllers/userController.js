@@ -249,13 +249,10 @@ const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
     console.log("🔍 Login Attempt for Email:", email);
-    console.log("🔑 Entered Password Before Hashing:", password);
 
     // ✅ Find user by email
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User Not Found" });
-
-    console.log("🔑 Stored Hashed Password in DB:", user.password);
 
     // ✅ Compare entered password with hashed password
     const isMatch = await bcrypt.compare(password, user.password);
@@ -461,8 +458,6 @@ const uploadProfilePictures = async (req, res) => {
   }
 };
 
-
-
 const deleteProfilePicture = async (req, res) => {
   try {
     const userId = req.params.id;
@@ -538,6 +533,43 @@ const forgotPassword = async (req, res) => {
   }
 };
 
+const resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { newPassword } = req.body;
+
+    // ✅ Find user with valid reset token
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() }, // Ensure token is not expired
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    // ✅ Assign new password (let pre-save middleware handle hashing)
+    user.password = newPassword;
+
+    // ✅ Clear reset token fields
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+
+    // ✅ Save user without triggering pre-save hook (to avoid double hashing)
+    await user.save({ validateBeforeSave: false });
+
+    return res.json({ message: "Password reset successful" }); // Ensure only one response
+  } catch (error) {
+    console.error("Error resetting password:", error);
+
+    if (!res.headersSent) {
+      return res.status(500).json({ error: "Server error" }); // Avoid sending response twice
+    }
+  }
+};
+
+
+
 // const resetPassword = async (req, res) => {
 //   try {
 //     const { token } = req.params;
@@ -551,9 +583,18 @@ const forgotPassword = async (req, res) => {
 
 //     if (!user) return res.status(400).json({ message: "Invalid or expired token" });
 
-//     // ✅ Hash new password
-//     const salt = await bcrypt.genSalt(10);
-//     user.password = await bcrypt.hash(newPassword, salt);
+//     console.log("🔑 New Password Before Hashing:", newPassword);
+
+//     // ✅ Ensure password is not already hashed (ALWAYS HASH IT)
+//     if (!newPassword.startsWith("$2a$")) {
+//       const salt = await bcrypt.genSalt(10);
+//       user.password = await bcrypt.hash(newPassword, salt);
+//     } else {
+//       console.log("⚠ Skipping re-hashing since password is already hashed!");
+//       user.password = newPassword; // If it’s already hashed (this should never happen)
+//     }
+
+//     console.log("✅ New Hashed Password to Save:", user.password);
 
 //     // ✅ Clear reset token fields
 //     user.resetPasswordToken = undefined;
@@ -561,51 +602,14 @@ const forgotPassword = async (req, res) => {
 
 //     await user.save();
 
-//     res.json({ message: "Password reset successful" });
+//     console.log("✅ Password updated successfully in database");
+//     res.json({ message: "Password reset successful. You can now log in." });
 //   } catch (error) {
-//     console.error("Error resetting password:", error);
+//     console.error("❌ Error resetting password:", error);
 //     res.status(500).json({ error: "Server error" });
 //   }
 // };
-const resetPassword = async (req, res) => {
-  try {
-    const { token } = req.params;
-    const { newPassword } = req.body;
 
-    // ✅ Find user with valid reset token
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() }, // Ensure token is not expired
-    });
-
-    if (!user) return res.status(400).json({ message: "Invalid or expired token" });
-
-    console.log("🔑 New Password Before Hashing:", newPassword);
-
-    // ✅ Ensure password is not already hashed (ALWAYS HASH IT)
-    if (!newPassword.startsWith("$2a$")) {
-      const salt = await bcrypt.genSalt(10);
-      user.password = await bcrypt.hash(newPassword, salt);
-    } else {
-      console.log("⚠ Skipping re-hashing since password is already hashed!");
-      user.password = newPassword; // If it’s already hashed (this should never happen)
-    }
-
-    console.log("✅ New Hashed Password to Save:", user.password);
-
-    // ✅ Clear reset token fields
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
-
-    await user.save();
-
-    console.log("✅ Password updated successfully in database");
-    res.json({ message: "Password reset successful. You can now log in." });
-  } catch (error) {
-    console.error("❌ Error resetting password:", error);
-    res.status(500).json({ error: "Server error" });
-  }
-};
 
 // ✅ Submit Inquiry (User Side)
 const submitInquiry = async (req, res) => {
