@@ -86,6 +86,7 @@ const professionRoutes = require("./routes/professionRoutes");
 const astrologyRoutes = require("./routes/astrologyRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const testimonialRoutes = require("./routes/testimonialRoutes"); // ✅ Added Testimonial Routes
+const membershipRoutes = require("./routes/membershipRoutes");
 
 dotenv.config();
 connectDB();
@@ -132,6 +133,7 @@ app.use("/api/professions", professionRoutes);
 app.use("/api/astrologies", astrologyRoutes);
 app.use("/api/admin/auth", adminRoutes);
 app.use("/api/testimonials", testimonialRoutes); // ✅ Added Testimonial Routes
+app.use("/api/memberships", membershipRoutes);
 
 app.get("/", (req, res) => {
   res.send("🚀 API is running...");
