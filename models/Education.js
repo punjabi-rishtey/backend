@@ -17,7 +17,7 @@ const mongoose = require("mongoose");
 const educationSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // ✅ Matches User schema
   user_name: { type: String, required: true },
-  education_level: { type: String, required: true }, // High School, Bachelor's, Master's, etc.
+  education_level: { type: String, default: ""}, // High School, Bachelor's, Master's, etc.
   education_field: { type: String, default: "" }, // Field of Study
 
   school_details: {
