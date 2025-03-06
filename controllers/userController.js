@@ -625,16 +625,32 @@ const submitInquiry = async (req, res) => {
   }
 };
 
+const getAllBasicUserDetails = async (req, res) => {
+  try {
+    // Fetch all users, selecting only the required fields
+    const users = await User.find()
+      .select("name age religion marital_status profile_pictures");
 
+    if (!users || users.length === 0) {
+      return res.status(404).json({ message: "No users found" });
+    }
 
+    // Format user data
+    const formattedUsers = users.map(user => ({
+      name: user.name,
+      age: user.age,
+      religion: user.religion,
+      marital_status: user.marital_status,
+      profile_picture: user.profile_pictures?.length > 0
+        ? `${req.protocol}://${req.get("host")}${user.profile_pictures[0]}`
+        : null, // Get first profile picture or return null
+    }));
 
+    res.json(formattedUsers);
+  } catch (error) {
+    console.error("Error fetching all user details:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
 
-
-
-
-
-
-
-
-
-module.exports = { registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword, submitInquiry};
+module.exports = {getAllBasicUserDetails, registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword, submitInquiry};
