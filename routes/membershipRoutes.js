@@ -6,6 +6,6 @@ const { getAllMemberships, addMembership, editMembership, deleteMembership } = r
 router.get("/all", getAllMemberships);
 router.post("/add", addMembership);
 router.put("/edit/:id", editMembership);
-router.delete("/:id", deleteMembership);
+router.delete("/delete/:id", deleteMembership);
 
 module.exports = router;
