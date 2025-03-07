@@ -2,28 +2,29 @@
 const Membership = require("../models/Membership");
 
 const getAllMemberships = async (req, res) => {
-  try {
-    const memberships = await Membership.find().sort({ price: 1 });
-    const formattedMemberships = memberships.map((membership) => ({
-      name: membership.name,
-      price: membership.price,
-      currency: "₹",
-      duration: "month",
-      mostPopular: membership.name === "Gold",
-      features: [
-        { feature: `${membership.premiumProfilesView} Premium Profiles view`, available: membership.premiumProfilesView > 0 },
-        { feature: "Free user profile can view", available: true },
-        { feature: "View contact details", available: membership.viewContactDetails },
-        { feature: "Send interest", available: membership.sendInterest },
-        { feature: "Start Chat", available: membership.startChat }
-      ]
-    }));
-    res.status(200).json(formattedMemberships);
-  } catch (error) {
-    console.error("Error fetching memberships:", error);
-    res.status(500).json({ error: "Server error!" });
-  }
-};
+    try {
+      const memberships = await Membership.find().sort({ price: 1 });
+      const formattedMemberships = memberships.map((membership) => ({
+        _id: membership._id, // Ensure _id is included
+        name: membership.name,
+        price: membership.price,
+        currency: "₹",
+        duration: "month",
+        mostPopular: membership.name === "Gold",
+        features: [
+          { feature: `${membership.premiumProfilesView} Premium Profiles view`, available: membership.premiumProfilesView > 0 },
+          { feature: "Free user profile can view", available: true },
+          { feature: "View contact details", available: membership.viewContactDetails },
+          { feature: "Send interest", available: membership.sendInterest },
+          { feature: "Start Chat", available: membership.startChat }
+        ]
+      }));
+      res.status(200).json(formattedMemberships);
+    } catch (error) {
+      console.error("Error fetching memberships:", error);
+      res.status(500).json({ error: "Server error!" });
+    }
+  };
 
 const addMembership = async (req, res) => {
     try {
