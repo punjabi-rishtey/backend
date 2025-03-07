@@ -70,16 +70,20 @@ const editMembership = async (req, res) => {
 };
 
 const deleteMembership = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const membership = await Membership.findById(id);
-    if (!membership) return res.status(404).json({ error: "Membership plan not found!" });
-    await Membership.findByIdAndDelete(id);
-    res.status(200).json({ message: "Membership plan deleted successfully!" });
-  } catch (error) {
-    console.error("Error deleting membership:", error);
-    res.status(500).json({ error: "Server error!" });
-  }
-};
+    try {
+      const { id } = req.params;
+      const deletedMembership = await Membership.findByIdAndDelete(id);
+  
+      if (!deletedMembership) {
+        return res.status(404).json({ error: "Membership not found!" });
+      }
+  
+      res.status(200).json({ message: "Membership deleted successfully!" });
+    } catch (error) {
+      console.error("Error deleting membership:", error);
+      res.status(500).json({ error: "Server error!" });
+    }
+  };
+  
 
 module.exports = { getAllMemberships, addMembership, editMembership, deleteMembership };
