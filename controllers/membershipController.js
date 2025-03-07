@@ -11,7 +11,7 @@ const getAllMemberships = async (req, res) => {
       duration: "month",
       mostPopular: membership.name === "Gold",
       features: [
-        { feature: `${membership.premiumProfilesView} Premium Profiles view /mo`, available: membership.premiumProfilesView > 0 },
+        { feature: `${membership.premiumProfilesView} Premium Profiles view`, available: membership.premiumProfilesView > 0 },
         { feature: "Free user profile can view", available: true },
         { feature: "View contact details", available: membership.viewContactDetails },
         { feature: "Send interest", available: membership.sendInterest },
