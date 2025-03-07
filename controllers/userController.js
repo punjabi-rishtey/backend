@@ -521,7 +521,9 @@ const forgotPassword = async (req, res) => {
     await user.save();
 
     // ✅ Send reset email
-    const resetUrl = `${req.protocol}://${req.get("host")}/api/users/reset-password/${resetToken}`;
+    // In your forgotPassword controller
+    const resetUrl = `https://user-frontend-seven-virid.vercel.app/reset-password/${resetToken}`;
+
     const message = `Click the link to reset your password: ${resetUrl}`;
 
     await sendEmail(user.email, "Password Reset", message);
