@@ -353,15 +353,17 @@ const getUserProfile = async (req, res) => {
       Astrology.findOne({ user: userId }) || {}
     ]);
 
-    // Ensure `profile_pictures` is always an array (avoid undefined errors)
+    // ✅ Fix Cloudinary image URL formatting (Remove backend URL issues)
     const profilePicturesUrls = Array.isArray(user.profile_pictures)
-      ? user.profile_pictures.map(pic => `${req.protocol}://${req.get("host")}${pic}`)
+      ? user.profile_pictures.map(pic =>
+          pic.startsWith("http") ? pic : `https://${pic.replace(/^\/\//, "")}`
+        )
       : [];
 
     // ✅ Construct user profile response
     const userProfile = {
       ...user.toObject(), // Convert Mongoose document to plain object
-      profile_pictures: profilePicturesUrls, // Multiple profile pictures
+      profile_pictures: profilePicturesUrls, // Corrected profile picture URLs
       family_details: family, // Attach family details
       education_details: education, // Attach education details
       profession_details: profession, // Attach profession details
@@ -370,10 +372,11 @@ const getUserProfile = async (req, res) => {
 
     res.json(userProfile);
   } catch (error) {
-    console.error("Error fetching user profile:", error);
-    res.status(500).json({ error: error.message });
+    console.error("❌ Error fetching user profile:", error);
+    res.status(500).json({ error: "Server error!", details: error.message });
   }
 };
+
 
 
 const updateUserProfile = async (req, res) => {
