@@ -11,6 +11,7 @@ const validator = require("validator");
 const fs = require("fs");
 const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
+const cloudinary = require("../config/cloudinary");
 
 const Inquiry = require("../models/inquiryModel");
 
@@ -375,8 +376,6 @@ const getUserProfile = async (req, res) => {
 };
 
 
-
-
 const updateUserProfile = async (req, res) => {
   try {
     const userId = req.params.id;
@@ -432,31 +431,61 @@ const updateUserProfile = async (req, res) => {
 };
 
 
-
-
 const uploadProfilePictures = async (req, res) => {
   try {
+    console.log("🔥 Incoming request body:", req.body);
+    console.log("📸 Incoming files:", req.files);
+
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: "No files uploaded" });
+      console.error("❌ No files uploaded!");
+      return res.status(400).json({ error: "Image file is required!" });
     }
 
     const userId = req.params.id;
-    const uploadedImages = req.files.map(file => `/uploads/${file.filename}`);
+    console.log("👤 User ID:", userId);
 
     // ✅ Find user
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "User Not Found" });
+    if (!user) {
+      console.error("❌ User Not Found with ID:", userId);
+      return res.status(404).json({ message: "User Not Found" });
+    }
+
+    console.log("✅ User found:", user.name || user.email);
+
+    // ✅ Upload each file to Cloudinary
+    const uploadedImages = [];
+    for (const file of req.files) {
+      console.log("📤 Uploading file:", file.originalname);
+      try {
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: "profile_pictures",
+          transformation: [{ width: 500, height: 500, crop: "limit" }],
+        });
+        console.log("✅ Cloudinary Upload Success:", result.secure_url);
+        uploadedImages.push(result.secure_url);
+      } catch (uploadError) {
+        console.error("❌ Cloudinary Upload Error:", uploadError);
+        return res.status(500).json({ error: "Cloudinary upload failed!", details: uploadError.message });
+      }
+    }
+
+    console.log("🖼 Uploaded Images:", uploadedImages);
 
     // ✅ Append new images to existing images (max 10)
     user.profile_pictures = [...(user.profile_pictures || []), ...uploadedImages].slice(-10);
     await user.save();
 
+    console.log("✅ Profile pictures updated for user:", userId);
+
     res.json({ message: "Profile pictures uploaded successfully", profile_pictures: user.profile_pictures });
   } catch (error) {
-    console.error("Error uploading profile pictures:", error);
-    res.status(500).json({ error: error.message });
+    console.error("❌ Error uploading profile pictures:", error);
+    res.status(500).json({ error: "Server error!", details: error.message });
   }
 };
+
+
 
 const deleteProfilePicture = async (req, res) => {
   try {
@@ -481,11 +510,9 @@ const deleteProfilePicture = async (req, res) => {
     user.profile_pictures = user.profile_pictures.filter(pic => pic !== imagePath);
     await user.save();
 
-    // ✅ Remove image from uploads folder
-    const filePath = path.join(__dirname, "../", imagePath); // Get full path
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
+    // ✅ Remove image from Cloudinary
+    const publicId = imagePath.split("/").pop().split(".")[0]; // Extract public ID
+    await cloudinary.uploader.destroy(`profile_pictures/${publicId}`);
 
     res.json({ message: "Profile picture deleted successfully", profile_pictures: user.profile_pictures });
   } catch (error) {
