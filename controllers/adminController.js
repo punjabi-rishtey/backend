@@ -183,25 +183,32 @@ const editUser = async (req, res) => {
     res.status(500).json({ error: error.message }); // Handle errors
   }
 };
-
-
-
 const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
 
     const user = await User.findById(id)
-      .select("-password") // Exclude password field
-      .populate({ path: "family", strictPopulate: false }) // ✅ Properly populate
-      .populate({ path: "education", strictPopulate: false }) // ✅ Properly populate
-      .populate({ path: "profession", strictPopulate: false }) // ✅ Properly populate
-      .populate({ path: "astrology", strictPopulate: false }); // ✅ Properly populate
+      .select("-password") // Exclude password for security
+      .populate("family") 
+      .populate("education") 
+      .populate("profession") 
+      .populate("astrology");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.json(user);
+    // ✅ Ensure all nested objects are not undefined
+    const completeUser = {
+      ...user.toObject(),
+      family: user.family || { family_value: "", family_type: "", mother: {}, father: {}, siblings: {} },
+      education: user.education || { education_level: "", college_details: { passout_year: "" }, school_details: {} },
+      profession: user.profession || { occupation: "", work_address: { address: "", city: "" } },
+      astrology: user.astrology || { rashi_nakshatra: "", gotra: "" },
+      location: user.location || { address: "", city: "" }
+    };
+
+    res.json(completeUser);
   } catch (error) {
     console.error("Error fetching user details:", error);
     res.status(500).json({ error: error.message });
