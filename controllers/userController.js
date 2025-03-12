@@ -744,23 +744,31 @@ const submitInquiry = async (req, res) => {
 
 const getAllBasicUserDetails = async (req, res) => {
   try {
-    // Fetch all users, selecting only the required fields
+    // Fetch users with populated preferences
     const users = await User.find()
-      .select("name age religion marital_status profile_pictures");
+      .populate("preferences") // Populates preference details
+      .select("name dob gender height religion marital_status caste language mangalik profile_pictures preferences") // Selects required fields
+      .lean(); // Converts Mongoose docs to plain JS objects
 
     if (!users || users.length === 0) {
       return res.status(404).json({ message: "No users found" });
     }
 
-    // Format user data
+    // Format user data before sending response
     const formattedUsers = users.map(user => ({
       name: user.name,
-      age: user.age,
+      age: user.dob ? new Date().getFullYear() - new Date(user.dob).getFullYear() : null, // Calculate age from DOB
+      gender: user.gender,
+      height: user.height,
       religion: user.religion,
       marital_status: user.marital_status,
+      caste: user.caste,
+      language: user.language,
+      mangalik: user.mangalik,
+      preferences: user.preferences || {}, // Ensure preferences are populated
       profile_picture: user.profile_pictures?.length > 0
-        ? `${req.protocol}://${req.get("host")}${user.profile_pictures[0]}`
-        : null, // Get first profile picture or return null
+        ? user.profile_pictures[0] // Uses Cloudinary URL directly
+        : null
     }));
 
     res.json(formattedUsers);
@@ -769,5 +777,6 @@ const getAllBasicUserDetails = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 
 module.exports = {getAllBasicUserDetails, registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword, submitInquiry};
