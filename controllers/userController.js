@@ -376,6 +376,7 @@ const getUserProfile = async (req, res) => {
   }
 };
 
+
 // const updateUserProfile = async (req, res) => {
 //   try {
 //     const userId = req.params.id;
@@ -389,42 +390,24 @@ const getUserProfile = async (req, res) => {
 //     ];
 
 //     // Filter only allowed fields
-//     const updates = {};
+//     let updates = {};
 //     for (const key in req.body) {
-//       if (allowedUpdates.includes(key)) {
+//       if (allowedUpdates.includes(key) && req.body[key] !== undefined) {
 //         updates[key] = req.body[key];
 //       }
 //     }
 
-//     // ✅ Fix: Convert height object to string if needed
+//     // ✅ Convert height object to a string if needed
 //     if (typeof updates.height === "object") {
 //       updates.height = `${updates.height.feet}'${updates.height.inches}"`;
 //     }
 
-//     // ✅ Fix: Ensure birth details are properly updated
-//     if (updates.birth_details && typeof updates.birth_details === "object") {
-//       updates["birth_details.birth_time"] = updates.birth_details.birth_time;
-//       updates["birth_details.birth_place"] = updates.birth_details.birth_place;
-//       delete updates.birth_details;
-//     }
+//     // ✅ Ensure birth_details, lifestyle, and physical_attributes update properly
+//     if (updates.birth_details) updates.birth_details = { ...updates.birth_details };
+//     if (updates.lifestyle) updates.lifestyle = { ...updates.lifestyle };
+//     if (updates.physical_attributes) updates.physical_attributes = { ...updates.physical_attributes };
 
-//     // ✅ Fix: Ensure physical_attributes are properly updated
-//     if (updates.physical_attributes && typeof updates.physical_attributes === "object") {
-//       Object.keys(updates.physical_attributes).forEach(key => {
-//         updates[`physical_attributes.${key}`] = updates.physical_attributes[key];
-//       });
-//       delete updates.physical_attributes;
-//     }
-
-//     // ✅ Fix: Ensure lifestyle fields are properly updated
-//     if (updates.lifestyle && typeof updates.lifestyle === "object") {
-//       Object.keys(updates.lifestyle).forEach(key => {
-//         updates[`lifestyle.${key}`] = updates.lifestyle[key];
-//       });
-//       delete updates.lifestyle;
-//     }
-
-//     // ✅ Fix: Prevent duplicate mobile number issue
+//     // ✅ Prevent duplicate mobile number issue
 //     if (updates.mobile) {
 //       const existingUser = await User.findOne({ mobile: updates.mobile });
 //       if (existingUser && existingUser._id.toString() !== userId) {
@@ -432,34 +415,29 @@ const getUserProfile = async (req, res) => {
 //       }
 //     }
 
-//     // ✅ Fetch the user before updating
-//     const currentUser = await User.findById(userId);
-//     if (!currentUser) {
+//     // ✅ Update user profile in MongoDB
+//     const updatedUser = await User.findOneAndUpdate(
+//       { _id: userId },
+//       updates,
+//       { new: true, runValidators: true }
+//     ).select("-password");
+
+//     if (!updatedUser) {
 //       return res.status(404).json({ message: "User not found" });
-//     }
-
-//     // ✅ Update the user in MongoDB
-//     const updatedUser = await User.findByIdAndUpdate(userId, updates, { new: true, runValidators: true }).select("-password");
-
-//     // ✅ If name is updated, reflect changes in related collections
-//     if (updates.name && updates.name !== currentUser.name) {
-//       await Promise.all([
-//         Education.updateMany({ user: userId }, { user_name: updates.name }),
-//         Family.updateMany({ user: userId }, { user_name: updates.name }),
-//         Profession.updateMany({ user: userId }, { user_name: updates.name }),
-//         Astrology.updateMany({ user: userId }, { user_name: updates.name })
-//       ]);
 //     }
 
 //     res.json({ message: "Profile updated successfully", user: updatedUser });
 //   } catch (error) {
-//     console.error("Error updating profile:", error);
+//     console.error("❌ Error updating profile:", error);
 //     res.status(500).json({ error: error.message });
 //   }
 // };
+
+
 const updateUserProfile = async (req, res) => {
   try {
-    const userId = req.params.id;
+    // Accept either "userId" or "id" from the route parameters
+    const userId = req.params.userId || req.params.id;
 
     // Define allowed fields for update
     const allowedUpdates = [
@@ -477,17 +455,17 @@ const updateUserProfile = async (req, res) => {
       }
     }
 
-    // ✅ Convert height object to a string if needed
+    // Convert height object to a string if needed (e.g., {feet:"5", inches:"8"} => "5'8\"")
     if (typeof updates.height === "object") {
       updates.height = `${updates.height.feet}'${updates.height.inches}"`;
     }
 
-    // ✅ Ensure birth_details, lifestyle, and physical_attributes update properly
+    // Ensure nested objects update properly (if provided)
     if (updates.birth_details) updates.birth_details = { ...updates.birth_details };
     if (updates.lifestyle) updates.lifestyle = { ...updates.lifestyle };
     if (updates.physical_attributes) updates.physical_attributes = { ...updates.physical_attributes };
 
-    // ✅ Prevent duplicate mobile number issue
+    // Prevent duplicate mobile number issue
     if (updates.mobile) {
       const existingUser = await User.findOne({ mobile: updates.mobile });
       if (existingUser && existingUser._id.toString() !== userId) {
@@ -495,7 +473,7 @@ const updateUserProfile = async (req, res) => {
       }
     }
 
-    // ✅ Update user profile in MongoDB
+    // Update user profile in MongoDB
     const updatedUser = await User.findOneAndUpdate(
       { _id: userId },
       updates,
