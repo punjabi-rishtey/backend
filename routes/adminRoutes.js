@@ -308,4 +308,7 @@ router.get("/inquiries/all", adminAuth, getAllInquiries);
 router.get("/user/:id", adminAuth, getUserById);
 
 
+
+
+
 module.exports = router;

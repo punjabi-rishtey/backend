@@ -123,4 +123,9 @@ router.get("/:userId", protect, getAstrologyDetails);
  */
 router.put("/:userId", protect, updateAstrologyDetails);
 
+
+
+
+
+
 module.exports = router;
