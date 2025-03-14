@@ -67,6 +67,9 @@ const updateFamilyDetails = async (req, res) => {
 };
 
 
+
+
+
 module.exports = { addFamilyDetails, getFamilyDetails, updateFamilyDetails };
 
 
