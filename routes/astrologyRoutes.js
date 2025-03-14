@@ -20,6 +20,7 @@ const {
 } = require("../controllers/astrologyController");
 const protect = require("../middleware/authMiddleware");
 
+
 const router = express.Router();
 
 /**
@@ -122,8 +123,6 @@ router.get("/:userId", protect, getAstrologyDetails);
  *         description: User not found
  */
 router.put("/:userId", protect, updateAstrologyDetails);
-
-
 
 
 

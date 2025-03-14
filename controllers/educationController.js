@@ -20,12 +20,15 @@ const getEducationDetails = async (req, res) => {
   }
 };
 
+
+
+
 // const updateEducationDetails = async (req, res) => {
 //   try {
 //     const userId = req.params.userId;
 
 //     // Find and update the education details
-//     const updatedEducation = await Education.findOneAndUpdate({ user_id: userId }, req.body, {
+//     const updatedEducation = await Education.findOneAndUpdate({ user: userId }, req.body, {
 //       new: true,
 //       runValidators: true
 //     });
@@ -42,22 +45,35 @@ const getEducationDetails = async (req, res) => {
 
 const updateEducationDetails = async (req, res) => {
   try {
-    const userId = req.params.userId;
+    const userId = req.params.userId || req.params.id;
 
-    // Find and update the education details
-    const updatedEducation = await Education.findOneAndUpdate({ user: userId }, req.body, {
-      new: true,
-      runValidators: true
+    // Find and update the education details for the given user
+    const updatedEducation = await Education.findOneAndUpdate(
+      { user: userId },
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+        upsert: false // Ensure that a new document is not created if none exists
+      }
+    );
+
+    if (!updatedEducation) {
+      return res.status(404).json({ message: "Education details not found" });
+    }
+
+    res.json({
+      message: "Education details updated successfully",
+      education: updatedEducation
     });
-
-    if (!updatedEducation) return res.status(404).json({ message: "Education details not found" });
-
-    res.json({ message: "Education details updated successfully", education: updatedEducation });
   } catch (error) {
     console.error("Error updating education details:", error);
     res.status(500).json({ error: error.message });
   }
 };
+
+
+
 
 
 module.exports = { addEducationDetails, getEducationDetails, updateEducationDetails};

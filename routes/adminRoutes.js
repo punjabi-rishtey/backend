@@ -38,6 +38,13 @@ const {
   getUserStatusCounts,
   getAllUsers, getAllInquiries, getUserById
 } = require("../controllers/adminController");
+const { updateAstrologyDetails } = require("../controllers/astrologyController");
+const { updateEducationDetails } = require("../controllers/educationController");
+const { updateProfessionDetails } = require("../controllers/professionController");
+const { updateFamilyDetails } = require("../controllers/familyController");
+const { updateUserProfile } = require("../controllers/userController"); // Adjust the path as needed
+
+
 const adminAuth = require("../middleware/adminAuthMiddleware");  // ✅ Import middleware
 
 const router = express.Router();
@@ -307,7 +314,12 @@ router.get("/inquiries/all", adminAuth, getAllInquiries);
 
 router.get("/user/:id", adminAuth, getUserById);
 
-
+//Edit page updatea apis:
+router.put("/astrologies/:id", adminAuth, updateAstrologyDetails);
+router.put("/educations/:id", adminAuth, updateEducationDetails);
+router.put("/professions/:id", adminAuth, updateProfessionDetails);
+router.put("/families/:id", adminAuth, updateFamilyDetails);
+router.put("/user/:id/profile", adminAuth, updateUserProfile);
 
 
 
