@@ -512,7 +512,30 @@ const getAllBasicUserDetails = async (req, res) => {
 };
 
 
-module.exports = {getAllBasicUserDetails, registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword, submitInquiry};
+
+const getProfileCompletion = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id)
+      .populate("family")
+      .populate("education")
+      .populate("profession")
+      .populate("astrology");
+    
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    const completionPercentage = user.calculateProfileCompletion();
+    return res.json({ completionPercentage });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+
+
+module.exports = {getAllBasicUserDetails, registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword, submitInquiry, getProfileCompletion};
 
 
 
