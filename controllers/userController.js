@@ -12,73 +12,8 @@ const fs = require("fs");
 const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const cloudinary = require("../config/cloudinary");
-
 const Inquiry = require("../models/inquiryModel");
-
-
-
-// const registerUser = async (req, res) => {
-//   try {
-//     const { name, email, password, mobile, gender, dob, religion, marital_status, preferences } = req.body;
-
-//     if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status || !preferences) {
-//       return res.status(400).json({ message: "All required fields must be provided." });
-//     }
-
-//     if (!Array.isArray(preferences) || preferences.length !== 3) {
-//       return res.status(400).json({ message: "You must select exactly 3 preferences." });
-//     }
-
-//     if (!validator.isEmail(email)) {
-//       return res.status(400).json({ message: "Invalid email format" });
-//     }
-
-//     if (!/^\d{10}$/.test(mobile)) {
-//       return res.status(400).json({ message: "Invalid mobile number. It must be 10 digits." });
-//     }
-
-//     const existingUser = await User.findOne({ $or: [{ email }, { mobile }] });
-//     if (existingUser) {
-//       return res.status(400).json({ message: "Email or Mobile number already exists." });
-//     }
-
-//     // ✅ Create the user document (Remove password hashing here!)
-//     const user = new User({
-//       name, email, password, mobile, gender, dob, religion, marital_status,
-//       status: "Pending"
-//     });
-
-//     await user.save();
-
-//     // ✅ Store preferences in the Preference model
-//     const preference = new Preference({
-//       user: user._id,
-//       preference1: preferences[0],
-//       preference2: preferences[1],
-//       preference3: preferences[2]
-//     });
-//     await preference.save();
-
-//     const family = new Family({ user: user._id, user_name: name });
-//     const education = new Education({ user: user._id, user_name: name });
-//     const profession = new Profession({ user: user._id, user_name: name });
-//     const astrology = new Astrology({ user: user._id, user_name: name });
-
-//     await Promise.all([family.save(), education.save(), profession.save(), astrology.save()]);
-
-//     user.family = family._id;
-//     user.education = education._id;
-//     user.profession = profession._id;
-//     user.astrology = astrology._id;
-//     user.preferences = preference._id;
-//     await user.save();
-
-//     res.status(201).json({ message: "User Registered Successfully", user });
-//   } catch (error) {
-//     console.error("❌ Error registering user:", error);
-//     res.status(500).json({ error: error.message });
-//   }
-// };
+const Subscription = require("../models/Subscription");
 
 
 const registerUser = async (req, res) => {
@@ -535,7 +470,79 @@ const getProfileCompletion = async (req, res) => {
 
 
 
-module.exports = {getAllBasicUserDetails, registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword, submitInquiry, getProfileCompletion};
+// const createSubscription = async (req, res) => {
+//   try {
+//     // Assuming the authenticated user's ID is available in req.user.id
+//     const userId = req.user.id;
+//     const { fullName, phoneNumber, screenshotUrl } = req.body;
+
+//     // Validate required fields
+//     if (!fullName || !phoneNumber || !screenshotUrl) {
+//       return res.status(400).json({ error: "Missing required fields." });
+//     }
+
+//     // Create and save a new subscription document
+//     const subscription = new Subscription({
+//       user: userId,
+//       fullName,
+//       phoneNumber,
+//       screenshotUrl,
+//       // createdAt is set automatically, and expiresAt is set in the pre-save hook.
+//     });
+
+//     await subscription.save();
+//     return res.status(201).json({ success: true, subscription });
+//   } catch (error) {
+//     console.error(error);
+//     return res.status(500).json({ error: "Server error." });
+//   }
+// };
+
+
+
+const createSubscription = async (req, res) => {
+try {
+  // Get the authenticated user's ID from req.user (set by your auth middleware)
+  const userId = req.user.id;
+  const { fullName, phoneNumber } = req.body;
+
+  // Validate the required text fields
+  if (!fullName || !phoneNumber) {
+    return res.status(400).json({ error: "Missing required fields: fullName or phoneNumber." });
+  }
+
+  // Validate that a file was uploaded (Multer sets req.file)
+  if (!req.file) {
+    return res.status(400).json({ error: "Screenshot file is required." });
+  }
+
+  // Upload the file to Cloudinary
+  const result = await cloudinary.uploader.upload(req.file.path, {
+    folder: "subscriptions", // Optional folder name in Cloudinary
+    transformation: [{ width: 800, crop: "limit" }] // Optional transformation
+  });
+  const screenshotUrl = result.secure_url;
+
+  // Create a new Subscription document with the provided fields and Cloudinary URL
+  const subscription = new Subscription({
+    user: userId,
+    fullName,
+    phoneNumber,
+    screenshotUrl,
+    // createdAt is set automatically, and expiresAt is handled in the pre-save hook.
+  });
+
+  await subscription.save();
+  return res.status(201).json({ success: true, subscription });
+} catch (error) {
+  console.error("Error creating subscription:", error);
+  return res.status(500).json({ error: "Server error", details: error.message });
+}
+};
+
+
+
+module.exports = {getAllBasicUserDetails, registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword, submitInquiry, getProfileCompletion, createSubscription};
 
 
 
@@ -566,6 +573,69 @@ module.exports = {getAllBasicUserDetails, registerUser, loginUser, searchMatches
 
 
 
+
+// const registerUser = async (req, res) => {
+//   try {
+//     const { name, email, password, mobile, gender, dob, religion, marital_status, preferences } = req.body;
+
+//     if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status || !preferences) {
+//       return res.status(400).json({ message: "All required fields must be provided." });
+//     }
+
+//     if (!Array.isArray(preferences) || preferences.length !== 3) {
+//       return res.status(400).json({ message: "You must select exactly 3 preferences." });
+//     }
+
+//     if (!validator.isEmail(email)) {
+//       return res.status(400).json({ message: "Invalid email format" });
+//     }
+
+//     if (!/^\d{10}$/.test(mobile)) {
+//       return res.status(400).json({ message: "Invalid mobile number. It must be 10 digits." });
+//     }
+
+//     const existingUser = await User.findOne({ $or: [{ email }, { mobile }] });
+//     if (existingUser) {
+//       return res.status(400).json({ message: "Email or Mobile number already exists." });
+//     }
+
+//     // ✅ Create the user document (Remove password hashing here!)
+//     const user = new User({
+//       name, email, password, mobile, gender, dob, religion, marital_status,
+//       status: "Pending"
+//     });
+
+//     await user.save();
+
+//     // ✅ Store preferences in the Preference model
+//     const preference = new Preference({
+//       user: user._id,
+//       preference1: preferences[0],
+//       preference2: preferences[1],
+//       preference3: preferences[2]
+//     });
+//     await preference.save();
+
+//     const family = new Family({ user: user._id, user_name: name });
+//     const education = new Education({ user: user._id, user_name: name });
+//     const profession = new Profession({ user: user._id, user_name: name });
+//     const astrology = new Astrology({ user: user._id, user_name: name });
+
+//     await Promise.all([family.save(), education.save(), profession.save(), astrology.save()]);
+
+//     user.family = family._id;
+//     user.education = education._id;
+//     user.profession = profession._id;
+//     user.astrology = astrology._id;
+//     user.preferences = preference._id;
+//     await user.save();
+
+//     res.status(201).json({ message: "User Registered Successfully", user });
+//   } catch (error) {
+//     console.error("❌ Error registering user:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 
 
 
@@ -731,8 +801,6 @@ module.exports = {getAllBasicUserDetails, registerUser, loginUser, searchMatches
 //     res.status(500).json({ error: error.message });
 //   }
 // };
-
-
 
 
 

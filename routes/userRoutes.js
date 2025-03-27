@@ -67,7 +67,8 @@ const {
   logoutUser,
   forgotPassword, submitInquiry,
   resetPassword,
-  getAllBasicUserDetails,  getProfileCompletion
+  getAllBasicUserDetails,  getProfileCompletion, 
+  createSubscription
 } = require("../controllers/userController");
 
 const protect = require("../middleware/authMiddleware");
@@ -97,6 +98,12 @@ router.get('/profile-completion',protect,  getProfileCompletion);
 // A route that requires at least 70% profile completion.
 // For example, accessing the "find my partner" page.
 
+
+// router.post("/subscribe", protect, createSubscription);
+
+router.post("/subscribe", protect, upload.single("screenshot"), createSubscription);
+
+
 router.get("/:id", protect, getUserProfile);
 
 
@@ -109,6 +116,7 @@ router.post("/:id/upload", protect, upload.array("profile_pictures", 10), upload
 router.delete("/:id/delete-picture", protect, deleteProfilePicture);
 
 
+
 router.post("/logout", protect, logoutUser);
 
 
@@ -119,9 +127,6 @@ router.post("/reset-password/:token", resetPassword);
 
 
 router.post("/inquiries/submit", submitInquiry);
-
-
-
 
 
 module.exports = router;

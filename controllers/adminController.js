@@ -151,6 +151,7 @@ const approveUser = async (req, res) => {
   }
 };
 
+
 // ✅ 3. Block a user
 const blockUser = async (req, res) => {
   try {
