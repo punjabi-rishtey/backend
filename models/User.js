@@ -81,6 +81,9 @@ const userSchema = new mongoose.Schema({
   preferences: { type: mongoose.Schema.Types.ObjectId, ref: "Preference" },
   
   is_deleted: { type: Boolean, default: false }
+}, {
+  toJSON: { getters: true, virtuals: true },
+  toObject: { getters: true, virtuals: true }
 });
 
 // Hash password before saving
