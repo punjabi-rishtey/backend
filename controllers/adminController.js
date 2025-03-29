@@ -10,6 +10,7 @@ const Education = require("../models/Education");
 const Astrology = require("../models/Astrology");
 const Inquiry = require("../models/inquiryModel");
 const Preference = require("../models/Preference");
+const Subscription = require("../models/Subscription");
 
 
 require("dotenv").config();
@@ -350,4 +351,22 @@ const getAllInquiries = async (req, res) => {
   }
 };
 
-module.exports = { registerAdmin, loginAdmin, getAdminDashboard, getUsersByStatus, getUsersByStatus, approveUser, blockUser, editUser, addUserFromAdmin, getUserRegistrationsPerMonth, getUserStatusCounts, getAllUsers, getAllInquiries, getUserById}
+const getAllSubscriptions = async (req, res) => {
+  try {
+    // Fetch all subscriptions and populate the "user" field with some user info.
+    const subscriptions = await Subscription.find({})
+      .populate("user", "name email mobile")  // Adjust fields as needed
+      .sort({ createdAt: -1 }); // Optional: sort newest first
+
+    return res.json({ success: true, subscriptions });
+  } catch (error) {
+    console.error("Error fetching subscriptions:", error);
+    return res.status(500).json({ error: "Server error", details: error.message });
+  }
+};
+
+
+
+
+
+module.exports = { registerAdmin, loginAdmin, getAdminDashboard, getUsersByStatus, getUsersByStatus, approveUser, blockUser, editUser, addUserFromAdmin, getUserRegistrationsPerMonth, getUserStatusCounts, getAllUsers, getAllInquiries, getUserById, getAllSubscriptions}
