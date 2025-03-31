@@ -24,7 +24,16 @@ const subscriptionSchema = new mongoose.Schema({
   },
   expiresAt: { 
     type: Date 
+  },
+  couponCode: { 
+    type: String, 
+    default: null 
+  },
+  discountAmount: { 
+    type: Number, 
+    default: 0 
   }
+
 });
 
 // Pre-save hook: Automatically set expiresAt to one year after the payment date.

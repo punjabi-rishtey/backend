@@ -14,6 +14,7 @@ const crypto = require("crypto");
 const cloudinary = require("../config/cloudinary");
 const Inquiry = require("../models/inquiryModel");
 const Subscription = require("../models/Subscription");
+const Coupon = require("../models/Coupon")
 
 
 const registerUser = async (req, res) => {
@@ -431,6 +432,7 @@ const getAllBasicUserDetails = async (req, res) => {
       religion: user.religion,
       marital_status: user.marital_status,
       caste: user.caste,
+      occupation: profession.occupation,
       language: user.language,
       mangalik: user.mangalik,
       preferences: user.preferences || {}, // Ensure preferences are populated
@@ -499,50 +501,89 @@ const getProfileCompletion = async (req, res) => {
 // };
 
 
-
 const createSubscription = async (req, res) => {
-try {
-  // Get the authenticated user's ID from req.user (set by your auth middleware)
-  const userId = req.user.id;
-  const { fullName, phoneNumber } = req.body;
+  try {
+    // 1) Get the authenticated user's ID from req.user (set by your auth middleware)
+    const userId = req.user.id;
+    const { fullName, phoneNumber, couponCode } = req.body;
 
-  // Validate the required text fields
-  if (!fullName || !phoneNumber) {
-    return res.status(400).json({ error: "Missing required fields: fullName or phoneNumber." });
+    // 2) Validate text fields
+    if (!fullName || !phoneNumber) {
+      return res
+        .status(400)
+        .json({ error: 'Missing required fields: fullName or phoneNumber.' });
+    }
+
+    // 3) Validate that a file was uploaded (Multer sets req.file)
+    if (!req.file) {
+      return res
+        .status(400)
+        .json({ error: 'Screenshot file is required.' });
+    }
+
+    // 4) Upload file to Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: 'subscriptions',
+      transformation: [{ width: 800, crop: 'limit' }]
+    });
+    const screenshotUrl = result.secure_url;
+
+    // 5) Check if user provided a coupon
+    let discountAmount = 0;
+    let validatedCouponCode = null;
+
+    if (couponCode) {
+      const coupon = await Coupon.findOne({
+        code: couponCode.trim(),
+        isActive: true
+      });
+
+      if (!coupon) {
+        // Coupon not found or inactive
+        return res
+          .status(400)
+          .json({ error: 'Invalid or inactive coupon code.' });
+      }
+
+      // Example base subscription cost
+      const basePrice = 999;
+
+      if (coupon.discountType === 'percentage') {
+        discountAmount = (basePrice * coupon.discountValue) / 100;
+      } else {
+        // 'flat' discount
+        discountAmount = coupon.discountValue;
+      }
+
+      validatedCouponCode = coupon.code;
+    }
+
+    // 6) Create subscription document
+    const subscription = new Subscription({
+      user: userId,
+      fullName,
+      phoneNumber,
+      screenshotUrl,
+      couponCode: validatedCouponCode,
+      discountAmount
+      // createdAt is automatic, expiresAt handled in pre-save hook
+    });
+
+    // 7) Save subscription
+    await subscription.save();
+
+    return res.status(201).json({
+      success: true,
+      subscription
+    });
+  } catch (error) {
+    console.error('Error creating subscription:', error);
+    return res.status(500).json({ error: 'Server error', details: error.message });
   }
-
-  // Validate that a file was uploaded (Multer sets req.file)
-  if (!req.file) {
-    return res.status(400).json({ error: "Screenshot file is required." });
-  }
-
-  // Upload the file to Cloudinary
-  const result = await cloudinary.uploader.upload(req.file.path, {
-    folder: "subscriptions", // Optional folder name in Cloudinary
-    transformation: [{ width: 800, crop: "limit" }] // Optional transformation
-  });
-  const screenshotUrl = result.secure_url;
-
-  // Create a new Subscription document with the provided fields and Cloudinary URL
-  const subscription = new Subscription({
-    user: userId,
-    fullName,
-    phoneNumber,
-    screenshotUrl,
-    // createdAt is set automatically, and expiresAt is handled in the pre-save hook.
-  });
-
-  await subscription.save();
-  return res.status(201).json({ success: true, subscription });
-} catch (error) {
-  console.error("Error creating subscription:", error);
-  return res.status(500).json({ error: "Server error", details: error.message });
-}
 };
 
 
-
-module.exports = {getAllBasicUserDetails, registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword, submitInquiry, getProfileCompletion, createSubscription};
+module.exports = {createSubscription, getAllBasicUserDetails, registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword, submitInquiry, getProfileCompletion, createSubscription};
 
 
 
