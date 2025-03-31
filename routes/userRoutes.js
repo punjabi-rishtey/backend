@@ -101,7 +101,7 @@ router.get('/profile-completion',protect,  getProfileCompletion);
 
 // router.post("/subscribe", protect, createSubscription);
 
-router.post("/subscribe", protect, upload.single("screenshot"), createSubscription);
+router.post("/subscribe", protect, upload.single("image"), createSubscription);
 
 
 router.get("/:id", protect, getUserProfile);
