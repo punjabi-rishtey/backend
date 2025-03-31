@@ -432,7 +432,7 @@ const getAllBasicUserDetails = async (req, res) => {
       religion: user.religion,
       marital_status: user.marital_status,
       caste: user.caste,
-      occupation: profession.occupation,
+      occupation: user.profession.occupation,
       language: user.language,
       mangalik: user.mangalik,
       preferences: user.preferences || {}, // Ensure preferences are populated
