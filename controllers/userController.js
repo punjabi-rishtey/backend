@@ -411,42 +411,98 @@ const submitInquiry = async (req, res) => {
   }
 };
 
+
+
 const getAllBasicUserDetails = async (req, res) => {
   try {
-    // Fetch users with populated preferences
+    // Populate both "preferences" and "profession", and select only needed fields from profession:
+    // e.g. occupation, designation, working_with, ...
     const users = await User.find()
-      .populate("preferences") // Populates preference details
-      .select("name dob gender height religion marital_status caste language mangalik profile_pictures preferences") // Selects required fields
-      .lean(); // Converts Mongoose docs to plain JS objects
+      .populate('preferences') // your existing populate for preferences
+      .populate('profession', 'occupation designation') // fetch only these fields from Profession
+      .select('name dob gender height religion marital_status caste language mangalik profile_pictures preferences profession')
+      .lean();
 
     if (!users || users.length === 0) {
-      return res.status(404).json({ message: "No users found" });
+      return res.status(404).json({ message: 'No users found' });
     }
 
-    // Format user data before sending response
     const formattedUsers = users.map(user => ({
       name: user.name,
-      age: user.dob ? new Date().getFullYear() - new Date(user.dob).getFullYear() : null, // Calculate age from DOB
+      age: user.dob
+        ? new Date().getFullYear() - new Date(user.dob).getFullYear()
+        : null,
       gender: user.gender,
       height: user.height,
       religion: user.religion,
       marital_status: user.marital_status,
       caste: user.caste,
-      occupation: user.profession.occupation,
+      // Pull occupation from user.profession (populated!)
+      occupation: user.profession?.occupation || null,
+      // Or include other profession fields you requested, e.g.:
+      // designation: user.profession?.designation || null,
       language: user.language,
       mangalik: user.mangalik,
-      preferences: user.preferences || {}, // Ensure preferences are populated
-      profile_picture: user.profile_pictures?.length > 0
-        ? user.profile_pictures[0] // Uses Cloudinary URL directly
-        : null
+      preferences: user.preferences || {},
+      profile_picture:
+        user.profile_pictures?.length > 0
+          ? user.profile_pictures[0]
+          : null
     }));
 
     res.json(formattedUsers);
   } catch (error) {
-    console.error("Error fetching all user details:", error);
+    console.error('Error fetching all user details:', error);
     res.status(500).json({ error: error.message });
   }
 };
+
+module.exports = {
+  getAllBasicUserDetails
+};
+
+
+
+
+
+
+
+// const getAllBasicUserDetails = async (req, res) => {
+//   try {
+//     // Fetch users with populated preferences
+//     const users = await User.find()
+//       .populate("preferences") // Populates preference details
+//       .select("name dob gender height religion marital_status caste language mangalik profile_pictures preferences") // Selects required fields
+//       .lean(); // Converts Mongoose docs to plain JS objects
+
+//     if (!users || users.length === 0) {
+//       return res.status(404).json({ message: "No users found" });
+//     }
+
+//     // Format user data before sending response
+//     const formattedUsers = users.map(user => ({
+//       name: user.name,
+//       age: user.dob ? new Date().getFullYear() - new Date(user.dob).getFullYear() : null, // Calculate age from DOB
+//       gender: user.gender,
+//       height: user.height,
+//       religion: user.religion,
+//       marital_status: user.marital_status,
+//       caste: user.caste,
+//       occupation: user.occupation,
+//       language: user.language,
+//       mangalik: user.mangalik,
+//       preferences: user.preferences || {}, // Ensure preferences are populated
+//       profile_picture: user.profile_pictures?.length > 0
+//         ? user.profile_pictures[0] // Uses Cloudinary URL directly
+//         : null
+//     }));
+
+//     res.json(formattedUsers);
+//   } catch (error) {
+//     console.error("Error fetching all user details:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 
 
 
