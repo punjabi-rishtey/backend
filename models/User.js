@@ -52,8 +52,8 @@ const userSchema = new mongoose.Schema({
   
   // Lifestyle
   lifestyle: {
-    smoke: { type: Boolean, default: false },
-    drink: { type: Boolean, default: false },
+    smoke: String,
+    drink: String,
     veg_nonveg: String, // Keeping original field from old code
     nri_status: { type: Boolean, default: false },
   },
