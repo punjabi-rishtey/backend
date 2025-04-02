@@ -174,10 +174,23 @@ const updateUserProfile = async (req, res) => {
 
     // Define allowed fields for update
     const allowedUpdates = [
-      "name", "gender", "dob", "height", "religion", "mobile",
-      "email", "hobbies", "status", "mangalik", "language",
-      "marital_status", "birth_details", "physical_attributes",
-      "lifestyle", "location"
+      "name", 
+      "gender", 
+      "dob", 
+      "height", 
+      "religion", 
+      "mobile",
+      "email", 
+      "hobbies", 
+      "status", 
+      "mangalik", 
+      "language",
+      "marital_status", 
+      "birth_details", 
+      "physical_attributes",
+      "lifestyle", 
+      "location",
+      "caste" // <-- newly added field
     ];
 
     // Filter only allowed fields
@@ -223,7 +236,6 @@ const updateUserProfile = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 
 
 const uploadProfilePictures = async (req, res) => {
