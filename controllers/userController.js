@@ -1,9 +1,9 @@
 const User = require("../models/User");
-const Family = require("../models/Family");  
-const Education = require("../models/Education");  
-const Profession = require("../models/Profession");  
-const Astrology = require("../models/Astrology");  
-const Preference = require("../models/Preference");  // ✅ Added Preference Model
+const Family = require("../models/Family");
+const Education = require("../models/Education");
+const Profession = require("../models/Profession");
+const Astrology = require("../models/Astrology");
+const Preference = require("../models/Preference"); // ✅ Added Preference Model
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const path = require("path");
@@ -14,15 +14,35 @@ const crypto = require("crypto");
 const cloudinary = require("../config/cloudinary");
 const Inquiry = require("../models/inquiryModel");
 const Subscription = require("../models/Subscription");
-const Coupon = require("../models/Coupon")
-
+const Coupon = require("../models/Coupon");
+const Membership = require("../models/Membership");
 
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, mobile, gender, dob, religion, marital_status } = req.body;
+    const {
+      name,
+      email,
+      password,
+      mobile,
+      gender,
+      dob,
+      religion,
+      marital_status,
+    } = req.body;
 
-    if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status) {
-      return res.status(400).json({ message: "All required fields must be provided." });
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !mobile ||
+      !gender ||
+      !dob ||
+      !religion ||
+      !marital_status
+    ) {
+      return res
+        .status(400)
+        .json({ message: "All required fields must be provided." });
     }
 
     if (!validator.isEmail(email)) {
@@ -30,12 +50,16 @@ const registerUser = async (req, res) => {
     }
 
     if (!/^\d{10}$/.test(mobile)) {
-      return res.status(400).json({ message: "Invalid mobile number. It must be 10 digits." });
+      return res
+        .status(400)
+        .json({ message: "Invalid mobile number. It must be 10 digits." });
     }
 
     const existingUser = await User.findOne({ $or: [{ email }, { mobile }] });
     if (existingUser) {
-      return res.status(400).json({ message: "Email or Mobile number already exists." });
+      return res
+        .status(400)
+        .json({ message: "Email or Mobile number already exists." });
     }
 
     // Create the user document (Remove password hashing here!)
@@ -48,7 +72,7 @@ const registerUser = async (req, res) => {
       dob,
       religion,
       marital_status,
-      status: "Pending"
+      status: "Pending",
     });
 
     await user.save();
@@ -58,7 +82,12 @@ const registerUser = async (req, res) => {
     const profession = new Profession({ user: user._id, user_name: name });
     const astrology = new Astrology({ user: user._id, user_name: name });
 
-    await Promise.all([family.save(), education.save(), profession.save(), astrology.save()]);
+    await Promise.all([
+      family.save(),
+      education.save(),
+      profession.save(),
+      astrology.save(),
+    ]);
 
     user.family = family._id;
     user.education = education._id;
@@ -72,8 +101,6 @@ const registerUser = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-
 
 const loginUser = async (req, res) => {
   try {
@@ -95,7 +122,9 @@ const loginUser = async (req, res) => {
     console.log("✅ Password Matched! Generating JWT...");
 
     // ✅ Generate JWT Token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
     res.json({ token, user });
   } catch (error) {
     console.error("❌ Error in login:", error);
@@ -103,10 +132,10 @@ const loginUser = async (req, res) => {
   }
 };
 
-
 const searchMatches = async (req, res) => {
   try {
-    const { gender, caste, religion, marital_status, city, minAge, maxAge } = req.query;
+    const { gender, caste, religion, marital_status, city, minAge, maxAge } =
+      req.query;
 
     let query = {};
 
@@ -115,7 +144,8 @@ const searchMatches = async (req, res) => {
     if (religion) query.religion = religion;
     if (marital_status) query.marital_status = marital_status;
     if (city) query["location.city"] = city;
-    if (minAge && maxAge) query.age = { $gte: parseInt(minAge), $lte: parseInt(maxAge) };
+    if (minAge && maxAge)
+      query.age = { $gte: parseInt(minAge), $lte: parseInt(maxAge) };
 
     const matches = await User.find(query).select("-password"); // Exclude password
     res.json(matches);
@@ -123,7 +153,6 @@ const searchMatches = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 
 const getUserProfile = async (req, res) => {
   try {
@@ -140,12 +169,12 @@ const getUserProfile = async (req, res) => {
       Family.findOne({ user: userId }) || {}, // If not found, return empty object
       Education.findOne({ user: userId }) || {},
       Profession.findOne({ user: userId }) || {},
-      Astrology.findOne({ user: userId }) || {}
+      Astrology.findOne({ user: userId }) || {},
     ]);
 
     // ✅ Fix Cloudinary image URL formatting (Remove backend URL issues)
     const profilePicturesUrls = Array.isArray(user.profile_pictures)
-      ? user.profile_pictures.map(pic =>
+      ? user.profile_pictures.map((pic) =>
           pic.startsWith("http") ? pic : `https://${pic.replace(/^\/\//, "")}`
         )
       : [];
@@ -157,7 +186,7 @@ const getUserProfile = async (req, res) => {
       family_details: family, // Attach family details
       education_details: education, // Attach education details
       profession_details: profession, // Attach profession details
-      astrology_details: astrology // Attach astrology details
+      astrology_details: astrology, // Attach astrology details
     };
 
     res.json(userProfile);
@@ -174,23 +203,23 @@ const updateUserProfile = async (req, res) => {
 
     // Define allowed fields for update
     const allowedUpdates = [
-      "name", 
-      "gender", 
-      "dob", 
-      "height", 
-      "religion", 
+      "name",
+      "gender",
+      "dob",
+      "height",
+      "religion",
       "mobile",
-      "email", 
-      "hobbies", 
-      "status", 
-      "mangalik", 
+      "email",
+      "hobbies",
+      "status",
+      "mangalik",
       "language",
-      "marital_status", 
-      "birth_details", 
+      "marital_status",
+      "birth_details",
       "physical_attributes",
-      "lifestyle", 
+      "lifestyle",
       "location",
-      "caste" // <-- newly added field
+      "caste", // <-- newly added field
     ];
 
     // Filter only allowed fields
@@ -207,9 +236,11 @@ const updateUserProfile = async (req, res) => {
     }
 
     // Ensure nested objects update properly (if provided)
-    if (updates.birth_details) updates.birth_details = { ...updates.birth_details };
+    if (updates.birth_details)
+      updates.birth_details = { ...updates.birth_details };
     if (updates.lifestyle) updates.lifestyle = { ...updates.lifestyle };
-    if (updates.physical_attributes) updates.physical_attributes = { ...updates.physical_attributes };
+    if (updates.physical_attributes)
+      updates.physical_attributes = { ...updates.physical_attributes };
 
     // Prevent duplicate mobile number issue
     if (updates.mobile) {
@@ -220,11 +251,10 @@ const updateUserProfile = async (req, res) => {
     }
 
     // Update user profile in MongoDB
-    const updatedUser = await User.findOneAndUpdate(
-      { _id: userId },
-      updates,
-      { new: true, runValidators: true }
-    ).select("-password");
+    const updatedUser = await User.findOneAndUpdate({ _id: userId }, updates, {
+      new: true,
+      runValidators: true,
+    }).select("-password");
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
@@ -236,7 +266,6 @@ const updateUserProfile = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 
 const uploadProfilePictures = async (req, res) => {
   try {
@@ -273,26 +302,33 @@ const uploadProfilePictures = async (req, res) => {
         uploadedImages.push(result.secure_url);
       } catch (uploadError) {
         console.error("❌ Cloudinary Upload Error:", uploadError);
-        return res.status(500).json({ error: "Cloudinary upload failed!", details: uploadError.message });
+        return res.status(500).json({
+          error: "Cloudinary upload failed!",
+          details: uploadError.message,
+        });
       }
     }
 
     console.log("🖼 Uploaded Images:", uploadedImages);
 
     // ✅ Append new images to existing images (max 10)
-    user.profile_pictures = [...(user.profile_pictures || []), ...uploadedImages].slice(-10);
+    user.profile_pictures = [
+      ...(user.profile_pictures || []),
+      ...uploadedImages,
+    ].slice(-10);
     await user.save();
 
     console.log("✅ Profile pictures updated for user:", userId);
 
-    res.json({ message: "Profile pictures uploaded successfully", profile_pictures: user.profile_pictures });
+    res.json({
+      message: "Profile pictures uploaded successfully",
+      profile_pictures: user.profile_pictures,
+    });
   } catch (error) {
     console.error("❌ Error uploading profile pictures:", error);
     res.status(500).json({ error: "Server error!", details: error.message });
   }
 };
-
-
 
 const deleteProfilePicture = async (req, res) => {
   try {
@@ -301,7 +337,9 @@ const deleteProfilePicture = async (req, res) => {
 
     // ✅ Ensure user is authenticated and can only delete their own images
     if (req.user.id !== userId) {
-      return res.status(403).json({ message: "Not authorized to delete this image" });
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete this image" });
     }
 
     // ✅ Find user in database
@@ -314,14 +352,19 @@ const deleteProfilePicture = async (req, res) => {
     }
 
     // ✅ Remove image from MongoDB
-    user.profile_pictures = user.profile_pictures.filter(pic => pic !== imagePath);
+    user.profile_pictures = user.profile_pictures.filter(
+      (pic) => pic !== imagePath
+    );
     await user.save();
 
     // ✅ Remove image from Cloudinary
     const publicId = imagePath.split("/").pop().split(".")[0]; // Extract public ID
     await cloudinary.uploader.destroy(`profile_pictures/${publicId}`);
 
-    res.json({ message: "Profile picture deleted successfully", profile_pictures: user.profile_pictures });
+    res.json({
+      message: "Profile picture deleted successfully",
+      profile_pictures: user.profile_pictures,
+    });
   } catch (error) {
     console.error("Error deleting profile picture:", error);
     res.status(500).json({ error: error.message });
@@ -337,7 +380,6 @@ const logoutUser = async (req, res) => {
     res.status(500).json({ error: "Server error during logout" });
   }
 };
-
 
 const forgotPassword = async (req, res) => {
   try {
@@ -404,42 +446,40 @@ const resetPassword = async (req, res) => {
   }
 };
 
-
 // ✅ Submit Inquiry (User Side)
 const submitInquiry = async (req, res) => {
   try {
-      const { name, email, phone, subject, message } = req.body;
+    const { name, email, phone, subject, message } = req.body;
 
-      if (!name || !email || !phone || !subject || !message) {
-          return res.status(400).json({ error: "All fields are required." });
-      }
+    if (!name || !email || !phone || !subject || !message) {
+      return res.status(400).json({ error: "All fields are required." });
+    }
 
-      const inquiry = new Inquiry({ name, email, phone, subject, message });
-      await inquiry.save();
-      res.status(201).json({ message: "Inquiry submitted successfully!" });
-
+    const inquiry = new Inquiry({ name, email, phone, subject, message });
+    await inquiry.save();
+    res.status(201).json({ message: "Inquiry submitted successfully!" });
   } catch (error) {
-      res.status(500).json({ error: "Server Error: Unable to submit inquiry." });
+    res.status(500).json({ error: "Server Error: Unable to submit inquiry." });
   }
 };
-
-
 
 const getAllBasicUserDetails = async (req, res) => {
   try {
     // Populate both "preferences" and "profession", and select only needed fields from profession:
     // e.g. occupation, designation, working_with, ...
     const users = await User.find()
-      .populate('preferences') // your existing populate for preferences
-      .populate('profession', 'occupation designation') // fetch only these fields from Profession
-      .select('name dob gender height religion marital_status caste language mangalik profile_pictures preferences profession')
+      .populate("preferences") // your existing populate for preferences
+      .populate("profession", "occupation designation") // fetch only these fields from Profession
+      .select(
+        "name dob gender height religion marital_status caste language mangalik profile_pictures preferences profession"
+      )
       .lean();
 
     if (!users || users.length === 0) {
-      return res.status(404).json({ message: 'No users found' });
+      return res.status(404).json({ message: "No users found" });
     }
 
-    const formattedUsers = users.map(user => ({
+    const formattedUsers = users.map((user) => ({
       name: user.name,
       age: user.dob
         ? new Date().getFullYear() - new Date(user.dob).getFullYear()
@@ -457,27 +497,19 @@ const getAllBasicUserDetails = async (req, res) => {
       mangalik: user.mangalik,
       preferences: user.preferences || {},
       profile_picture:
-        user.profile_pictures?.length > 0
-          ? user.profile_pictures[0]
-          : null
+        user.profile_pictures?.length > 0 ? user.profile_pictures[0] : null,
     }));
 
     res.json(formattedUsers);
   } catch (error) {
-    console.error('Error fetching all user details:', error);
+    console.error("Error fetching all user details:", error);
     res.status(500).json({ error: error.message });
   }
 };
 
 module.exports = {
-  getAllBasicUserDetails
+  getAllBasicUserDetails,
 };
-
-
-
-
-
-
 
 // const getAllBasicUserDetails = async (req, res) => {
 //   try {
@@ -516,8 +548,6 @@ module.exports = {
 //   }
 // };
 
-
-
 const getProfileCompletion = async (req, res) => {
   try {
     const user = await User.findById(req.user.id)
@@ -525,11 +555,11 @@ const getProfileCompletion = async (req, res) => {
       .populate("education")
       .populate("profession")
       .populate("astrology");
-    
+
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    
+
     const completionPercentage = user.calculateProfileCompletion();
     return res.json({ completionPercentage });
   } catch (err) {
@@ -537,8 +567,6 @@ const getProfileCompletion = async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 };
-
-
 
 // const createSubscription = async (req, res) => {
 //   try {
@@ -568,33 +596,31 @@ const getProfileCompletion = async (req, res) => {
 //   }
 // };
 
-
 const createSubscription = async (req, res) => {
   try {
     // 1) Get the authenticated user's ID from req.user (set by your auth middleware)
     const userId = req.user.id;
-    const { fullName, phoneNumber, couponCode } = req.body;
+
+    const { fullName, phoneNumber, couponCode, membershipId } = req.body;
 
     // 2) Validate text fields
-    if (!fullName || !phoneNumber) {
+    if (!fullName || !phoneNumber || !membershipId) {
       return res
         .status(400)
-        .json({ error: 'Missing required fields: fullName or phoneNumber.' });
+        .json({ error: "Missing required fields: fullName or phoneNumber." });
     }
 
     // 3) Validate that a file was uploaded (Multer sets req.file)
     if (!req.file) {
-      return res
-        .status(400)
-        .json({ error: 'Screenshot file is required.' });
+      return res.status(400).json({ error: "Screenshot file is required." });
     }
 
     // 4) Upload file to Cloudinary
     const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: 'subscriptions',
-      transformation: [{ width: 800, crop: 'limit' }]
+      folder: "subscriptions",
+      transformation: [{ width: 800, crop: "limit" }],
     });
-    const screenshotUrl = result.secure_url;
+    const screenshotUrl = "result.secure_url";
 
     // 5) Check if user provided a coupon
     let discountAmount = 0;
@@ -603,20 +629,20 @@ const createSubscription = async (req, res) => {
     if (couponCode) {
       const coupon = await Coupon.findOne({
         code: couponCode.trim(),
-        isActive: true
+        isActive: true,
       });
 
       if (!coupon) {
         // Coupon not found or inactive
         return res
           .status(400)
-          .json({ error: 'Invalid or inactive coupon code.' });
+          .json({ error: "Invalid or inactive coupon code." });
       }
 
       // Example base subscription cost
       const basePrice = 999;
 
-      if (coupon.discountType === 'percentage') {
+      if (coupon.discountType === "percentage") {
         discountAmount = (basePrice * coupon.discountValue) / 100;
       } else {
         // 'flat' discount
@@ -626,6 +652,29 @@ const createSubscription = async (req, res) => {
       validatedCouponCode = coupon.code;
     }
 
+    let expiresAt;
+    try {
+      const membershipTier = await Membership.findById(membershipId).select(
+        "duration"
+      );
+
+      if (!membershipTier) {
+        return res.status(404).json({ error: "wrong membershipId " });
+      }
+      const currentDate = new Date();
+      expiresAt = new Date(currentDate);
+      expiresAt.setMonth(currentDate.getMonth() + membershipTier.duration);
+
+      console.log(
+        "> membershipTier.duration | expiresAt: ",
+        membershipTier.duration,
+        expiresAt
+      );
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Server error" });
+    }
+
     // 6) Create subscription document
     const subscription = new Subscription({
       user: userId,
@@ -633,7 +682,8 @@ const createSubscription = async (req, res) => {
       phoneNumber,
       screenshotUrl,
       couponCode: validatedCouponCode,
-      discountAmount
+      discountAmount,
+      expiresAt,
       // createdAt is automatic, expiresAt handled in pre-save hook
     });
 
@@ -642,46 +692,33 @@ const createSubscription = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      subscription
+      subscription,
     });
   } catch (error) {
-    console.error('Error creating subscription:', error);
-    return res.status(500).json({ error: 'Server error', details: error.message });
+    console.error("Error creating subscription:", error);
+    return res
+      .status(500)
+      .json({ error: "Server error", details: error.message });
   }
 };
 
-
-module.exports = {createSubscription, getAllBasicUserDetails, registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures, deleteProfilePicture, logoutUser, forgotPassword, resetPassword, submitInquiry, getProfileCompletion, createSubscription};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+module.exports = {
+  createSubscription,
+  getAllBasicUserDetails,
+  registerUser,
+  loginUser,
+  searchMatches,
+  getUserProfile,
+  updateUserProfile,
+  uploadProfilePictures,
+  deleteProfilePicture,
+  logoutUser,
+  forgotPassword,
+  resetPassword,
+  submitInquiry,
+  getProfileCompletion,
+  createSubscription,
+};
 
 // const registerUser = async (req, res) => {
 //   try {
@@ -746,8 +783,6 @@ module.exports = {createSubscription, getAllBasicUserDetails, registerUser, logi
 //   }
 // };
 
-
-
 // const registerUser = async (req, res) => {
 //   try {
 //     const user = new User(req.body);
@@ -757,7 +792,6 @@ module.exports = {createSubscription, getAllBasicUserDetails, registerUser, logi
 //     res.status(400).json({ error: error.message });
 //   }
 // };
-
 
 // const registerUser = async (req, res) => {
 //   try {
@@ -772,8 +806,6 @@ module.exports = {createSubscription, getAllBasicUserDetails, registerUser, logi
 //     if (!validator.isEmail(email)) {
 //       return res.status(400).json({ message: "Invalid email format" });
 //     }
-
-    
 
 //     // ✅ Check if password is strong
 //     if (!validator.isStrongPassword(password, { minLength: 8, minNumbers: 1, minUppercase: 1, minSymbols: 1 })) {
@@ -803,14 +835,12 @@ module.exports = {createSubscription, getAllBasicUserDetails, registerUser, logi
 //   }
 // };
 
-
-
 // const registerUser = async (req, res) => {
 //   try {
 //     const {
 //       // User Fields
 //       name, email, password, mobile, gender, dob, religion, marital_status,
-//       height, caste, location, hobbies, mangalik, language, birth_details, 
+//       height, caste, location, hobbies, mangalik, language, birth_details,
 //       physical_attributes, lifestyle,
 
 //       // Family Fields
@@ -860,7 +890,7 @@ module.exports = {createSubscription, getAllBasicUserDetails, registerUser, logi
 
 //     // ✅ Create the user document
 //     const user = new User({
-//       name, email, password, mobile, gender, dob, religion, marital_status, height, caste, 
+//       name, email, password, mobile, gender, dob, religion, marital_status, height, caste,
 //       location, hobbies, mangalik, language, birth_details, physical_attributes, lifestyle,
 //       status: "Pending"
 //     });
@@ -889,12 +919,6 @@ module.exports = {createSubscription, getAllBasicUserDetails, registerUser, logi
 //   }
 // };
 
-
-
-
-
-
-
 // const loginUser = async (req, res) => {
 //   try {
 //     const { email, password } = req.body;
@@ -911,9 +935,6 @@ module.exports = {createSubscription, getAllBasicUserDetails, registerUser, logi
 //   }
 // };
 
-
-
-
 // const getUserProfile = async (req, res) => {
 //   try {
 //     const user = await User.findById(req.params.id).select("-password"); // Exclude password
@@ -928,7 +949,7 @@ module.exports = {createSubscription, getAllBasicUserDetails, registerUser, logi
 //     const profilePicUrl = user.profile_picture ? `${req.protocol}://${req.get("host")}${user.profile_picture}` : null;
 
 //     // ✅ Ensure `profile_pictures` is always an array (avoid undefined errors)
-//     const profilePicturesUrls = Array.isArray(user.profile_pictures) 
+//     const profilePicturesUrls = Array.isArray(user.profile_pictures)
 //       ? user.profile_pictures.map(pic => `${req.protocol}://${req.get("host")}${pic}`)
 //       : [];
 
@@ -949,8 +970,6 @@ module.exports = {createSubscription, getAllBasicUserDetails, registerUser, logi
 //     res.status(500).json({ error: error.message });
 //   }
 // };
-
-
 
 // const updateUserProfile = async (req, res) => {
 //   try {
@@ -1008,9 +1027,6 @@ module.exports = {createSubscription, getAllBasicUserDetails, registerUser, logi
 //   }
 // };
 
-
-
-
 // const resetPassword = async (req, res) => {
 //   try {
 //     const { token } = req.params;
@@ -1050,4 +1066,3 @@ module.exports = {createSubscription, getAllBasicUserDetails, registerUser, logi
 //     res.status(500).json({ error: "Server error" });
 //   }
 // };
-
