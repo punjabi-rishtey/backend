@@ -620,7 +620,7 @@ const createSubscription = async (req, res) => {
       folder: "subscriptions",
       transformation: [{ width: 800, crop: "limit" }],
     });
-    const screenshotUrl = "result.secure_url";
+    const screenshotUrl = result.secure_url;
 
     // 5) Check if user provided a coupon
     let discountAmount = 0;
