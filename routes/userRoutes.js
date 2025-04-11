@@ -62,6 +62,7 @@ const {
   getAllBasicUserDetails,
   getProfileCompletion,
   createSubscription,
+  getUserSubscription,
 } = require("../controllers/userController");
 
 const protect = require("../middleware/authMiddleware");
@@ -91,6 +92,9 @@ router.get("/profile-completion", protect, getProfileCompletion);
 // router.post("/subscribe", protect, createSubscription);
 
 router.post("/subscribe", protect, upload.single("image"), createSubscription);
+
+
+router.get("/subscription/:id", getUserSubscription);
 
 router.get("/:id", protect, getUserProfile);
 

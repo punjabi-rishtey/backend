@@ -154,6 +154,24 @@ const searchMatches = async (req, res) => {
   }
 };
 
+const getUserSubscription = async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    const subscription = await Subscription.findOne({ user: userId });
+
+    if (!subscription) {
+      return res.status(404).json({ message: "Subscription not found for this user." });
+    }
+
+    return res.status(200).json({ success: true, data: subscription });
+  } catch (error) {
+    console.error("Error fetching subscription:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+
 const getUserProfile = async (req, res) => {
   try {
     const userId = req.params.id;
@@ -718,6 +736,7 @@ module.exports = {
   submitInquiry,
   getProfileCompletion,
   createSubscription,
+  getUserSubscription,
 };
 
 // const registerUser = async (req, res) => {
