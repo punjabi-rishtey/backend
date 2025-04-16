@@ -11,7 +11,19 @@ const userSchema = new mongoose.Schema({
   age: {
     type: Number,
     get: function () {
-      return new Date().getFullYear() - new Date(this.dob).getFullYear();
+      const today = new Date();
+      const birthDate = new Date(this.dob);
+      let age = today.getFullYear() - birthDate.getFullYear();
+  
+      const hasBirthdayPassedThisYear =
+        today.getMonth() > birthDate.getMonth() ||
+        (today.getMonth() === birthDate.getMonth() && today.getDate() >= birthDate.getDate());
+  
+      if (!hasBirthdayPassedThisYear) {
+        age -= 1;
+      }
+  
+      return Math.floor(age);
     }
   },
   height: String,
