@@ -2,7 +2,7 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const validator = require("validator");
-const Admin = require("../models/Admin"); // Ensure you have an Admin 
+const Admin = require("../models/Admin"); // Ensure you have an Admin
 const User = require("../models/User");
 const Profession = require("../models/Profession");
 const Family = require("../models/Family");
@@ -12,7 +12,6 @@ const Inquiry = require("../models/inquiryModel");
 const Preference = require("../models/Preference");
 const Subscription = require("../models/Subscription");
 
-
 require("dotenv").config();
 
 const registerAdmin = async (req, res) => {
@@ -21,7 +20,9 @@ const registerAdmin = async (req, res) => {
 
     // ✅ Check if all required fields are provided
     if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
     }
 
     // ✅ Validate email format
@@ -30,22 +31,27 @@ const registerAdmin = async (req, res) => {
     }
 
     // ✅ Validate password strength
-    if (!validator.isStrongPassword(password, {
-      minLength: 8,
-      minLowercase: 1,
-      minUppercase: 1,
-      minNumbers: 1,
-      minSymbols: 1,
-    })) {
+    if (
+      !validator.isStrongPassword(password, {
+        minLength: 8,
+        minLowercase: 1,
+        minUppercase: 1,
+        minNumbers: 1,
+        minSymbols: 1,
+      })
+    ) {
       return res.status(400).json({
-        message: "Password must be at least 8 characters long, contain an uppercase letter, a number, and a special character.",
+        message:
+          "Password must be at least 8 characters long, contain an uppercase letter, a number, and a special character.",
       });
     }
 
     // ✅ Check if the admin already exists
     const existingAdmin = await Admin.findOne({ email });
     if (existingAdmin) {
-      return res.status(400).json({ message: "Admin already exists with this email" });
+      return res
+        .status(400)
+        .json({ message: "Admin already exists with this email" });
     }
 
     // ✅ Hash password
@@ -64,33 +70,34 @@ const registerAdmin = async (req, res) => {
 };
 
 const loginAdmin = async (req, res) => {
-    try {
-      const { email, password } = req.body;
-  
-      // ✅ Find admin by email
-      const admin = await Admin.findOne({ email });
-      if (!admin) {
-        return res.status(404).json({ message: "Admin not found" });
-      }
-  
-      // ✅ Check password
-      const isMatch = await bcrypt.compare(password, admin.password);
-      if (!isMatch) {
-        return res.status(400).json({ message: "Invalid credentials" });
-      }
-  
-      // ✅ Generate JWT Token for Admin
-      const token = jwt.sign({ id: admin._id, role: "admin" }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  
-      res.json({ message: "Admin login successful", token });
-    } catch (error) {
-      console.error("Error logging in admin:", error);
-      res.status(500).json({ error: "Server error" });
+  try {
+    const { email, password } = req.body;
+
+    // ✅ Find admin by email
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
     }
-  };
-  
 
+    // ✅ Check password
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
 
+    // ✅ Generate JWT Token for Admin
+    const token = jwt.sign(
+      { id: admin._id, role: "admin" },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({ message: "Admin login successful", token });
+  } catch (error) {
+    console.error("Error logging in admin:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};
 
 // ✅ Get Admin Dashboard Stats
 const getAdminDashboard = async (req, res) => {
@@ -120,7 +127,9 @@ const getUsersByStatus = async (req, res) => {
   try {
     const { status } = req.params;
 
-    if (!["Total", "Approved", "Pending", "Expired", "Canceled"].includes(status)) {
+    if (
+      !["Total", "Approved", "Pending", "Expired", "Canceled"].includes(status)
+    ) {
       return res.status(400).json({ message: "Invalid status" });
     }
 
@@ -141,8 +150,19 @@ const getUsersByStatus = async (req, res) => {
 const approveUser = async (req, res) => {
   try {
     const { id } = req.params;
+    const { expiry } = req.query;
 
-    const user = await User.findByIdAndUpdate(id, { status: "Approved" }, { new: true });
+    let expiresAt;
+
+    const currentDate = new Date();
+    expiresAt = new Date(currentDate);
+    expiresAt.setMonth(currentDate.getMonth() + expiry || 0);
+
+    const user = await User.findByIdAndUpdate(
+      id,
+      { status: "Approved", "metadata.exp_date": expiresAt },
+      { new: true }
+    );
     if (!user) return res.status(404).json({ message: "User not found" });
 
     res.json({ message: "User approved successfully", user });
@@ -152,13 +172,16 @@ const approveUser = async (req, res) => {
   }
 };
 
-
 // ✅ 3. Block a user
 const blockUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const user = await User.findByIdAndUpdate(id, { status: "Canceled" }, { new: true });
+    const user = await User.findByIdAndUpdate(
+      id,
+      { status: "Canceled" },
+      { new: true }
+    );
     if (!user) return res.status(404).json({ message: "User not found" });
 
     res.json({ message: "User blocked successfully", user });
@@ -168,15 +191,16 @@ const blockUser = async (req, res) => {
   }
 };
 
-
 const editUser = async (req, res) => {
   try {
-    const { id } = req.params;  // Extracting user ID from request params
-    const updates = req.body;   // Extracting the updated user details from request body
+    const { id } = req.params; // Extracting user ID from request params
+    const updates = req.body; // Extracting the updated user details from request body
 
     // Finding the user by ID and updating the provided fields
-    const user = await User.findByIdAndUpdate(id, updates, { new: true }).select("-password");
-    
+    const user = await User.findByIdAndUpdate(id, updates, {
+      new: true,
+    }).select("-password");
+
     if (!user) return res.status(404).json({ message: "User not found" }); // Handle case if user doesn't exist
 
     res.json({ message: "User updated successfully", user }); // Send success response
@@ -191,9 +215,9 @@ const getUserById = async (req, res) => {
 
     const user = await User.findById(id)
       .select("-password") // Exclude password for security
-      .populate("family") 
-      .populate("education") 
-      .populate("profession") 
+      .populate("family")
+      .populate("education")
+      .populate("profession")
       .populate("astrology");
 
     if (!user) {
@@ -203,11 +227,24 @@ const getUserById = async (req, res) => {
     // ✅ Ensure all nested objects are not undefined
     const completeUser = {
       ...user.toObject(),
-      family: user.family || { family_value: "", family_type: "", mother: {}, father: {}, siblings: {} },
-      education: user.education || { education_level: "", college_details: { passout_year: "" }, school_details: {} },
-      profession: user.profession || { occupation: "", work_address: { address: "", city: "" } },
+      family: user.family || {
+        family_value: "",
+        family_type: "",
+        mother: {},
+        father: {},
+        siblings: {},
+      },
+      education: user.education || {
+        education_level: "",
+        college_details: { passout_year: "" },
+        school_details: {},
+      },
+      profession: user.profession || {
+        occupation: "",
+        work_address: { address: "", city: "" },
+      },
       astrology: user.astrology || { rashi_nakshatra: "", gotra: "" },
-      location: user.location || { address: "", city: "" }
+      location: user.location || { address: "", city: "" },
     };
 
     res.json(completeUser);
@@ -217,25 +254,54 @@ const getUserById = async (req, res) => {
   }
 };
 
-
 // ✅ Add User from Admin
 const addUserFromAdmin = async (req, res) => {
   try {
-    const { name, email, password, mobile, gender, dob, religion, marital_status, preferences } = req.body;
+    const {
+      name,
+      email,
+      password,
+      mobile,
+      gender,
+      dob,
+      religion,
+      marital_status,
+      preferences,
+    } = req.body;
 
     // ✅ Validate required fields
-    if (!name || !email || !password || !mobile || !gender || !dob || !religion || !marital_status || !preferences) {
-      return res.status(400).json({ message: "All required fields must be provided, including preferences." });
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !mobile ||
+      !gender ||
+      !dob ||
+      !religion ||
+      !marital_status ||
+      !preferences
+    ) {
+      return res.status(400).json({
+        message: "All required fields must be provided, including preferences.",
+      });
     }
 
-    if (!preferences.preference1 || !preferences.preference2 || !preferences.preference3) {
-      return res.status(400).json({ message: "All three preferences must be selected." });
+    if (
+      !preferences.preference1 ||
+      !preferences.preference2 ||
+      !preferences.preference3
+    ) {
+      return res
+        .status(400)
+        .json({ message: "All three preferences must be selected." });
     }
 
     // ✅ Check if user already exists
     const existingUser = await User.findOne({ $or: [{ email }, { mobile }] });
     if (existingUser) {
-      return res.status(400).json({ message: "Email or Mobile number already exists." });
+      return res
+        .status(400)
+        .json({ message: "Email or Mobile number already exists." });
     }
 
     // ✅ Hash password before saving
@@ -253,7 +319,7 @@ const addUserFromAdmin = async (req, res) => {
       dob,
       religion,
       marital_status,
-      status: "Pending"
+      status: "Pending",
     });
 
     // ✅ Save Preferences
@@ -261,20 +327,21 @@ const addUserFromAdmin = async (req, res) => {
       user: newUser._id,
       preference1: preferences.preference1,
       preference2: preferences.preference2,
-      preference3: preferences.preference3
+      preference3: preferences.preference3,
     });
 
     // ✅ Link Preferences to User
     newUser.preferences = preferenceDoc._id;
     await newUser.save();
 
-    res.status(201).json({ message: "User Added Successfully by Admin", user: newUser });
+    res
+      .status(201)
+      .json({ message: "User Added Successfully by Admin", user: newUser });
   } catch (error) {
     console.error("Error adding user from admin:", error);
     res.status(500).json({ error: error.message });
   }
 };
-
 
 // 📌 API to Get User Registrations Per Month (Last 6 Months)
 const getUserRegistrationsPerMonth = async (req, res) => {
@@ -301,7 +368,6 @@ const getUserRegistrationsPerMonth = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
-
 
 // 📌 API to Get User Status Counts
 const getUserStatusCounts = async (req, res) => {
@@ -340,14 +406,13 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-
 // ✅ Fetch All Inquiries (Admin Side)
 const getAllInquiries = async (req, res) => {
   try {
-      const inquiries = await Inquiry.find().sort({ createdAt: -1 });
-      res.status(200).json(inquiries);
+    const inquiries = await Inquiry.find().sort({ createdAt: -1 });
+    res.status(200).json(inquiries);
   } catch (error) {
-      res.status(500).json({ error: "Server Error: Unable to fetch inquiries." });
+    res.status(500).json({ error: "Server Error: Unable to fetch inquiries." });
   }
 };
 
@@ -355,18 +420,32 @@ const getAllSubscriptions = async (req, res) => {
   try {
     // Fetch all subscriptions and populate the "user" field with some user info.
     const subscriptions = await Subscription.find({})
-      .populate("user", "name email mobile")  // Adjust fields as needed
+      .populate("user", "name email mobile") // Adjust fields as needed
       .sort({ createdAt: -1 }); // Optional: sort newest first
 
     return res.json({ success: true, subscriptions });
   } catch (error) {
     console.error("Error fetching subscriptions:", error);
-    return res.status(500).json({ error: "Server error", details: error.message });
+    return res
+      .status(500)
+      .json({ error: "Server error", details: error.message });
   }
 };
 
-
-
-
-
-module.exports = { registerAdmin, loginAdmin, getAdminDashboard, getUsersByStatus, getUsersByStatus, approveUser, blockUser, editUser, addUserFromAdmin, getUserRegistrationsPerMonth, getUserStatusCounts, getAllUsers, getAllInquiries, getUserById, getAllSubscriptions}
+module.exports = {
+  registerAdmin,
+  loginAdmin,
+  getAdminDashboard,
+  getUsersByStatus,
+  getUsersByStatus,
+  approveUser,
+  blockUser,
+  editUser,
+  addUserFromAdmin,
+  getUserRegistrationsPerMonth,
+  getUserStatusCounts,
+  getAllUsers,
+  getAllInquiries,
+  getUserById,
+  getAllSubscriptions,
+};
