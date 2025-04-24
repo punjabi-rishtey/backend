@@ -75,6 +75,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const testimonialRoutes = require("./routes/testimonialRoutes"); // ✅ Added Testimonial Routes
 const membershipRoutes = require("./routes/membershipRoutes");
 const couponRoutes = require("./routes/couponRoutes");
+const startExpiryCheckCron = require("./utils/checkExpiryCron");
 
 dotenv.config();
 connectDB();
