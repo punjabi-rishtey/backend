@@ -152,11 +152,29 @@ const approveUser = async (req, res) => {
     const { id } = req.params;
     const { expiry } = req.query;
 
+    const userdetail = await User.findById(id).select("-password"); // Exclude password for security
+    console.log("> User to approve:", userdetail.name);
+    const fullName = userdetail.name;
+    const phoneNumber = userdetail.mobile;
+
     let expiresAt;
 
     const currentDate = new Date();
     expiresAt = new Date(currentDate);
     expiresAt.setMonth(currentDate.getMonth() + expiry || 0);
+
+    const subscription = await Subscription.findOne({ user: id });
+    if (!subscription) {    // 6) Create subscription document
+        const subscription = new Subscription({
+          user: id,
+          fullName,
+          phoneNumber,
+          screenshotUrl:"approved by admin",
+          expiresAt,
+        });
+    
+        await subscription.save();
+    }
 
     const user = await User.findByIdAndUpdate(
       id,
@@ -176,7 +194,7 @@ const approveUser = async (req, res) => {
 const blockUser = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     let expiresAt;
 
     const currentDate = new Date();
