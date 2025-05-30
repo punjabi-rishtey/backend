@@ -176,10 +176,15 @@ const approveUser = async (req, res) => {
 const blockUser = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    let expiresAt;
+
+    const currentDate = new Date();
+    expiresAt = new Date(currentDate);
 
     const user = await User.findByIdAndUpdate(
       id,
-      { status: "Canceled" },
+      { status: "Canceled", "metadata.exp_date": expiresAt },
       { new: true }
     );
     if (!user) return res.status(404).json({ message: "User not found" });
