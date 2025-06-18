@@ -14,6 +14,8 @@ const {
   getAllInquiries,
   getUserById,
   getAllSubscriptions,
+  getUserStatus,
+  deleteUser,
 } = require("../controllers/adminController");
 const {
   updateAstrologyDetails,
@@ -66,5 +68,11 @@ router.put("/educations/:id", adminAuth, updateEducationDetails);
 router.put("/professions/:id", adminAuth, updateProfessionDetails);
 router.put("/families/:id", adminAuth, updateFamilyDetails);
 router.put("/user/:id/profile", adminAuth, updateUserProfile);
+
+// Route to get user status by ID
+router.get("userstatus/:id/status", getUserStatus);
+
+// Route to delete user by ID
+router.delete("deleteuser/:id", deleteUser);
 
 module.exports = router;
