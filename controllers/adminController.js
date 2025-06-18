@@ -164,16 +164,17 @@ const approveUser = async (req, res) => {
     expiresAt.setMonth(currentDate.getMonth() + expiry || 0);
 
     const subscription = await Subscription.findOne({ user: id });
-    if (!subscription) {    // 6) Create subscription document
-        const subscription = new Subscription({
-          user: id,
-          fullName,
-          phoneNumber,
-          screenshotUrl:"approved by admin",
-          expiresAt,
-        });
-    
-        await subscription.save();
+    if (!subscription) {
+      // 6) Create subscription document
+      const subscription = new Subscription({
+        user: id,
+        fullName,
+        phoneNumber,
+        screenshotUrl: "approved by admin",
+        expiresAt,
+      });
+
+      await subscription.save();
     }
 
     const user = await User.findByIdAndUpdate(
@@ -439,19 +440,135 @@ const getAllInquiries = async (req, res) => {
   }
 };
 
+// const getAllSubscriptions = async (req, res) => {
+//   try {
+//     // Fetch all subscriptions and populate the "user" field with some user info.
+//     const subscriptions = await Subscription.find({})
+//       .populate("user", "name email mobile") // Adjust fields as needed
+//       .sort({ createdAt: -1 }); // Optional: sort newest first
+
+//     return res.json({ success: true, subscriptions });
+//   } catch (error) {
+//     console.error("Error fetching subscriptions:", error);
+//     return res
+//       .status(500)
+//       .json({ error: "Server error", details: error.message });
+//   }
+// };
+
+// Get user status by ID
+
 const getAllSubscriptions = async (req, res) => {
   try {
-    // Fetch all subscriptions and populate the "user" field with some user info.
+    // Fetch all subscriptions and populate the "user" field with some user info
     const subscriptions = await Subscription.find({})
-      .populate("user", "name email mobile") // Adjust fields as needed
-      .sort({ createdAt: -1 }); // Optional: sort newest first
+      .populate("user", "name email mobile status")
+      .sort({ createdAt: -1 }); // Sort newest first
 
-    return res.json({ success: true, subscriptions });
+    // Map subscriptions to include payment status
+    const subscriptionsWithStatus = subscriptions.map((subscription) => {
+      let paymentStatus = "Active";
+
+      // Check if user exists and is not deleted
+      if (!subscription.user || subscription.user.is_deleted) {
+        paymentStatus = "Canceled";
+      } else {
+        // Check user status
+        if (subscription.user.status === "Canceled") {
+          paymentStatus = "Canceled";
+        } else if (
+          subscription.user.status === "Expired" ||
+          (subscription.expiresAt &&
+            new Date(subscription.expiresAt) < new Date())
+        ) {
+          paymentStatus = "Expired";
+        }
+      }
+
+      return {
+        ...subscription.toObject(),
+        paymentStatus,
+      };
+    });
+
+    return res.json({ success: true, subscriptions: subscriptionsWithStatus });
   } catch (error) {
     console.error("Error fetching subscriptions:", error);
     return res
       .status(500)
       .json({ error: "Server error", details: error.message });
+  }
+};
+
+const getUserStatus = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Validate user ID
+    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
+    // Find user and select only status field
+    const user = await User.findById(userId).select("status");
+
+    if (!user || user.is_deleted) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      status: user.status,
+      message: "User status retrieved successfully",
+    });
+  } catch (error) {
+    console.error("Error fetching user status:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Delete user by ID (soft delete)
+const deleteUser = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    // Validate user ID
+    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
+    // Find and update user to mark as deleted
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        is_deleted: true,
+        status: "Canceled",
+      },
+      { new: true }
+    ).select("name email status is_deleted");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      message: "User deleted successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        status: user.status,
+        is_deleted: user.is_deleted,
+      },
+    });
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 };
 
@@ -471,4 +588,6 @@ module.exports = {
   getAllInquiries,
   getUserById,
   getAllSubscriptions,
+  getUserStatus,
+  deleteUser,
 };
