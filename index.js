@@ -76,6 +76,7 @@ const testimonialRoutes = require("./routes/testimonialRoutes"); // ✅ Added Te
 const membershipRoutes = require("./routes/membershipRoutes");
 const couponRoutes = require("./routes/couponRoutes");
 const startExpiryCheckCron = require("./utils/checkExpiryCron");
+const messageRoutes = require("./routes/messageRoutes");
 
 dotenv.config();
 connectDB();
@@ -124,6 +125,7 @@ app.use("/api/admin/auth", adminRoutes);
 app.use("/api/testimonials", testimonialRoutes); // ✅ Added Testimonial Routes
 app.use("/api/memberships", membershipRoutes);
 app.use("/api/coupons", couponRoutes);
+app.use("/api/messages", messageRoutes);
 
 app.get("/", (req, res) => {
   res.send("🚀 API is running...");
