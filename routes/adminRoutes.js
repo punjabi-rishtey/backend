@@ -16,6 +16,7 @@ const {
   getAllSubscriptions,
   getUserStatus,
   deleteUser,
+  changeUserPasswordByAdmin,
 } = require("../controllers/adminController");
 const {
   updateAstrologyDetails,
@@ -70,9 +71,13 @@ router.put("/families/:id", adminAuth, updateFamilyDetails);
 router.put("/user/:id/profile", adminAuth, updateUserProfile);
 
 // Route to get user status by ID
-router.get("userstatus/:id/status", getUserStatus);
+router.get("/userstatus/:id/status", getUserStatus);
 
 // Route to delete user by ID
-router.delete("deleteuser/:id", deleteUser);
+router.delete("/deleteuser/:id", deleteUser);
+
+// Route to change a user's password by admin
+// /api/admin/auth/change-password/:userId
+router.put("/change-password/:userId", changeUserPasswordByAdmin);
 
 module.exports = router;

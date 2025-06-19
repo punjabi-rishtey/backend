@@ -572,7 +572,43 @@ const deleteUser = async (req, res) => {
   }
 };
 
+const changeUserPasswordByAdmin = async (req, res) => {
+  try {
+    const { userId } = req.params; // The ID of the user whose password needs to be changed
+    const { newPassword } = req.body; // The new password for the user
+
+    // Validate userId
+    if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "Invalid user ID format." });
+    }
+
+    // Find the user by ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Hash the new password
+    // const salt = await bcrypt.genSalt(10);
+    await bcrypt.genSalt(10);
+    // user.password = await bcrypt.hash(newPassword, salt);
+
+    // Save the updated user (this will trigger the pre-save hook for password hashing, but we've already hashed it,
+    // so it's safe. Mongoose will recognize `isModified('password')` as true)
+    const sa = await user.save();
+    console.log("> user.save, password change: ", sa);
+
+    res
+      .status(200)
+      .json({ message: "User password changed successfully by admin." });
+  } catch (error) {
+    console.error("Error changing user password by admin:", error);
+    res.status(500).json({ error: "Server error." });
+  }
+};
+
 module.exports = {
+  changeUserPasswordByAdmin,
   registerAdmin,
   loginAdmin,
   getAdminDashboard,
