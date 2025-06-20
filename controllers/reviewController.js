@@ -1,5 +1,4 @@
 const Review = require("../models/Review");
-const cloudinary = require("../config/cloudinary");
 
 // ✅ Add Review
 const addReview = async (req, res) => {
@@ -9,7 +8,7 @@ const addReview = async (req, res) => {
 
     const { user_name, message, ratings } = req.body;
 
-    if (!user_name || !message || ratings) {
+    if (!user_name || !message || !ratings) {
       console.error("❌ Missing fields: user_name or message");
       return res
         .status(400)
