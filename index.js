@@ -73,6 +73,7 @@ const professionRoutes = require("./routes/professionRoutes");
 const astrologyRoutes = require("./routes/astrologyRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const testimonialRoutes = require("./routes/testimonialRoutes"); // ✅ Added Testimonial Routes
+const reviewRoutes = require("./routes/reviewRoutes"); // ✅ Added Testimonial Routes
 const membershipRoutes = require("./routes/membershipRoutes");
 const couponRoutes = require("./routes/couponRoutes");
 const startExpiryCheckCron = require("./utils/checkExpiryCron");
@@ -123,6 +124,7 @@ app.use("/api/professions", professionRoutes);
 app.use("/api/astrologies", astrologyRoutes);
 app.use("/api/admin/auth", adminRoutes);
 app.use("/api/testimonials", testimonialRoutes); // ✅ Added Testimonial Routes
+app.use("/api/review", reviewRoutes); // ✅ Added Review Routes
 app.use("/api/memberships", membershipRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/messages", messageRoutes);
