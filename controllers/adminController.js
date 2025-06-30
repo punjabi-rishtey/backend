@@ -589,9 +589,9 @@ const changeUserPasswordByAdmin = async (req, res) => {
     }
 
     // Hash the new password
-    const salt = await bcrypt.genSalt(10);
-    // await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
+    // const salt = await bcrypt.genSalt(10);
+    // user.password = await bcrypt.hash(newPassword, salt);
+    user.password = newPassword
 
     // Save the updated user (this will trigger the pre-save hook for password hashing, but we've already hashed it,
     // so it's safe. Mongoose will recognize `isModified('password')` as true)
