@@ -539,28 +539,20 @@ const deleteUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid user ID format" });
     }
 
-    // Find and update user to mark as deleted
-    const user = await User.findByIdAndUpdate(
-      userId,
-      {
-        is_deleted: true,
-        status: "Canceled",
-      },
-      { new: true }
-    ).select("name email status is_deleted");
+    // Find and permanently delete user
+    const user = await User.findByIdAndDelete(userId).select("name email status");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
     return res.status(200).json({
-      message: "User deleted successfully",
+      message: "User permanently deleted successfully",
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
         status: user.status,
-        is_deleted: user.is_deleted,
       },
     });
   } catch (error) {
