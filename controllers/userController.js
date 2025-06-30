@@ -416,7 +416,8 @@ const forgotPassword = async (req, res) => {
 
     // ✅ Send reset email
     // In your forgotPassword controller
-    const resetUrl = `https://user-frontend-seven-virid.vercel.app/reset-password/${resetToken}`;
+    const resetUrl = `https://www.punjabi-rishtey.com/reset-password/${resetToken}`;
+    // const resetUrl = `https://user-frontend-seven-virid.vercel.app/reset-password/${resetToken}`;
 
     const message = `Click the link to reset your password: ${resetUrl}`;
 
