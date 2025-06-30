@@ -94,6 +94,8 @@ const allowedOrigins = [
   "http://localhost:5174",
   "http://localhost:8080",
   "https://user-frontend-seven-virid.vercel.app",
+  "https://www.punjabi-rishtey.com/admin",
+  "https://www.punjabi-rishtey.com",
 ];
 
 const corsOptions = {
