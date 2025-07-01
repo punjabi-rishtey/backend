@@ -484,14 +484,12 @@ const submitInquiry = async (req, res) => {
 
 const getAllBasicUserDetails = async (req, res) => {
   try {
-    // Populate both "preferences" and "profession", and select only needed fields from profession:
-    // e.g. occupation, designation, working_with, ...
     const users = await User.find()
-      .populate("preferences") // your existing populate for preferences
-      .populate("profession", "occupation designation") // fetch only these fields from Profession
+      .populate("preferences")
+      .populate("profession", "occupation designation")
       .select(
-        "name dob gender height religion marital_status caste language mangalik profile_pictures preferences profession"
-      )
+        "name dob gender height religion marital_status caste language mangalik profile_pictures preferences profession metadata.register_date"
+      ) // Added metadata.register_date
       .lean();
 
     if (!users || users.length === 0) {
@@ -508,15 +506,15 @@ const getAllBasicUserDetails = async (req, res) => {
       religion: user.religion,
       marital_status: user.marital_status,
       caste: user.caste,
-      // Pull occupation from user.profession (populated!)
       occupation: user.profession?.occupation || null,
-      // Or include other profession fields you requested, e.g.:
-      // designation: user.profession?.designation || null,
       language: user.language,
-      mangalik: user.mangalik,
+      manglik: user.mangalik, // Note: Schema uses 'mangalik', but API uses 'manglik'
       preferences: user.preferences || {},
       profile_picture:
         user.profile_pictures?.length > 0 ? user.profile_pictures[0] : null,
+      metadata: {
+        register_date: user.metadata?.register_date || null, // Include register_date
+      },
     }));
 
     res.json(formattedUsers);
