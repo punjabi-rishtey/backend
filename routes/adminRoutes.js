@@ -1,4 +1,6 @@
 const express = require("express");
+const multer = require("multer");
+
 const {
   registerAdmin,
   loginAdmin,
@@ -17,6 +19,8 @@ const {
   getUserStatus,
   deleteUser,
   changeUserPasswordByAdmin,
+  uploadQR,
+  getQR,
 } = require("../controllers/adminController");
 const {
   updateAstrologyDetails,
@@ -79,5 +83,13 @@ router.delete("/deleteuser/:id", deleteUser);
 // Route to change a user's password by admin
 // /api/admin/auth/change-password/:userId
 router.put("/change-password/:userId", changeUserPasswordByAdmin);
+
+// QR
+// Multer config (in-memory)
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
+router.post("/qr/upload", upload.single("image"), uploadQR);
+router.post("/qr", getQR);
 
 module.exports = router;
