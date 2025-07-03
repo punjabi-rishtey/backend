@@ -90,6 +90,6 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 router.post("/qr/upload", upload.single("image"), uploadQR);
-router.post("/qr", getQR);
+router.get("/qr", getQR);
 
 module.exports = router;
