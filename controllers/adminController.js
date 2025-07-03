@@ -11,6 +11,8 @@ const Astrology = require("../models/Astrology");
 const Inquiry = require("../models/inquiryModel");
 const Preference = require("../models/Preference");
 const Subscription = require("../models/Subscription");
+const cloudinary = require("../config/cloudinary");
+const QrCode = require("../models/QRCode");
 
 require("dotenv").config();
 
@@ -155,7 +157,9 @@ const approveUser = async (req, res) => {
     // Validate and parse expiry
     const parsedExpiry = Number(expiry);
     if (isNaN(parsedExpiry) || parsedExpiry <= 0) {
-      return res.status(400).json({ message: "Invalid expiry value. Must be a positive number." });
+      return res
+        .status(400)
+        .json({ message: "Invalid expiry value. Must be a positive number." });
     }
 
     const userdetail = await User.findById(id).select("-password"); // Exclude password for security
@@ -597,7 +601,9 @@ const deleteUser = async (req, res) => {
     }
 
     // Find and permanently delete user
-    const user = await User.findByIdAndDelete(userId).select("name email status");
+    const user = await User.findByIdAndDelete(userId).select(
+      "name email status"
+    );
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -640,7 +646,7 @@ const changeUserPasswordByAdmin = async (req, res) => {
     // Hash the new password
     // const salt = await bcrypt.genSalt(10);
     // user.password = await bcrypt.hash(newPassword, salt);
-    user.password = newPassword
+    user.password = newPassword;
 
     // Save the updated user (this will trigger the pre-save hook for password hashing, but we've already hashed it,
     // so it's safe. Mongoose will recognize `isModified('password')` as true)
@@ -656,7 +662,45 @@ const changeUserPasswordByAdmin = async (req, res) => {
   }
 };
 
+// QR
+const uploadQR = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!req.file || !name)
+      return res.status(400).json({ error: "Name and image required" });
+
+    // Upload to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload_stream(
+      { folder: "qrcodes" },
+      async (error, result) => {
+        if (error)
+          return res.status(500).json({ error: "Cloudinary upload failed" });
+
+        // Replace existing or insert new
+        await QrCode.deleteMany({});
+        const record = await QrCode.create({
+          name,
+          imageUrl: result.secure_url,
+        });
+        res.status(201).json(record);
+      }
+    );
+
+    uploadResult.end(req.file.buffer);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+const getQR = async (req, res) => {
+  const record = await QrCode.findOne().sort({ createdAt: -1 });
+  if (!record) return res.status(404).json({ error: "No QR found" });
+  res.json(record);
+};
+
 module.exports = {
+  getQR,
+  uploadQR,
   changeUserPasswordByAdmin,
   registerAdmin,
   loginAdmin,
