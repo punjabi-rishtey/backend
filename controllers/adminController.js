@@ -251,10 +251,12 @@ const approveUser = async (req, res) => {
         phoneNumber,
         screenshotUrl: "approved by admin",
         expiresAt,
+        createdAt: start
       });
       await subscription.save();
     } else {
       // Update existing subscription's expiresAt
+      subscription.createdAt = start
       subscription.expiresAt = expiresAt;
       await subscription.save();
     }
