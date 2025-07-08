@@ -285,17 +285,23 @@ const blockUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    let expiresAt;
-
     const currentDate = new Date();
-    expiresAt = new Date(currentDate);
+    const expiresAt = new Date(currentDate);
 
+    // Update user's status and expiry date
     const user = await User.findByIdAndUpdate(
       id,
       { status: "Canceled", "metadata.exp_date": expiresAt },
       { new: true }
     );
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Update subscription's expiry date
+    const subscription = await Subscription.findOneAndUpdate(
+      { user: id },
+      { expiresAt },
+      { new: true }
+    );
 
     res.json({ message: "User blocked successfully", user });
   } catch (error) {
