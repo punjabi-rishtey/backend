@@ -55,7 +55,7 @@ const updateAstrologyDetails = async (req, res) => {
         new: true,
         runValidators: true,
         // Ensure upsert is false so we don't create a new document if not found.
-        // upsert: false
+        upsert: true
       }
     );
 
