@@ -149,10 +149,69 @@ const getUsersByStatus = async (req, res) => {
 };
 
 // ✅ 2. Approve a user
+// const approveUser = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { expiry } = req.query;
+
+//     // Validate and parse expiry
+//     const parsedExpiry = Number(expiry);
+//     if (isNaN(parsedExpiry) || parsedExpiry <= 0) {
+//       return res
+//         .status(400)
+//         .json({ message: "Invalid expiry value. Must be a positive number." });
+//     }
+
+//     const userdetail = await User.findById(id).select("-password"); // Exclude password for security
+//     if (!userdetail) {
+//       return res.status(404).json({ message: "User not found" });
+//     }
+//     console.log("> User to approve:", userdetail.name);
+//     const fullName = userdetail.name;
+//     const phoneNumber = userdetail.mobile;
+
+//     // Calculate expiresAt
+//     const currentDate = new Date();
+//     const expiresAt = new Date(currentDate);
+//     expiresAt.setMonth(currentDate.getMonth() + parsedExpiry);
+
+//     // Check if subscription exists
+//     let subscription = await Subscription.findOne({ user: id });
+//     if (!subscription) {
+//       // Create subscription document
+//       subscription = new Subscription({
+//         user: id,
+//         fullName,
+//         phoneNumber,
+//         screenshotUrl: "approved by admin",
+//         expiresAt,
+//       });
+//       await subscription.save();
+//     } else {
+//       // Update existing subscription's expiresAt
+//       subscription.expiresAt = expiresAt;
+//       await subscription.save();
+//     }
+
+//     // Update user status and expiry date
+//     const user = await User.findByIdAndUpdate(
+//       id,
+//       { status: "Approved", "metadata.exp_date": expiresAt },
+//       { new: true }
+//     );
+//     if (!user) return res.status(404).json({ message: "User not found" });
+
+//     res.json({ message: "User approved successfully", user });
+//   } catch (error) {
+//     console.error("Error approving user:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
 const approveUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { expiry } = req.query;
+    const { expiry, startDate } = req.query;
 
     // Validate and parse expiry
     const parsedExpiry = Number(expiry);
@@ -162,7 +221,15 @@ const approveUser = async (req, res) => {
         .json({ message: "Invalid expiry value. Must be a positive number." });
     }
 
-    const userdetail = await User.findById(id).select("-password"); // Exclude password for security
+    // Validate startDate
+    const start = new Date(startDate);
+    if (isNaN(start.getTime())) {
+      return res
+        .status(400)
+        .json({ message: "Invalid start date. Must be a valid date." });
+    }
+
+    const userdetail = await User.findById(id).select("-password");
     if (!userdetail) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -170,10 +237,9 @@ const approveUser = async (req, res) => {
     const fullName = userdetail.name;
     const phoneNumber = userdetail.mobile;
 
-    // Calculate expiresAt
-    const currentDate = new Date();
-    const expiresAt = new Date(currentDate);
-    expiresAt.setMonth(currentDate.getMonth() + parsedExpiry);
+    // Calculate expiresAt based on startDate
+    const expiresAt = new Date(start);
+    expiresAt.setMonth(start.getMonth() + parsedExpiry);
 
     // Check if subscription exists
     let subscription = await Subscription.findOne({ user: id });
@@ -193,10 +259,14 @@ const approveUser = async (req, res) => {
       await subscription.save();
     }
 
-    // Update user status and expiry date
+    // Update user status, register_date, and expiry date
     const user = await User.findByIdAndUpdate(
       id,
-      { status: "Approved", "metadata.exp_date": expiresAt },
+      {
+        status: "Approved",
+        "metadata.register_date": start,
+        "metadata.exp_date": expiresAt,
+      },
       { new: true }
     );
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -207,50 +277,6 @@ const approveUser = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
-// const approveUser = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const { expiry } = req.query;
-
-//     const userdetail = await User.findById(id).select("-password"); // Exclude password for security
-//     console.log("> User to approve:", userdetail.name);
-//     const fullName = userdetail.name;
-//     const phoneNumber = userdetail.mobile;
-
-//     let expiresAt;
-
-//     const currentDate = new Date();
-//     expiresAt = new Date(currentDate);
-//     expiresAt.setMonth(currentDate.getMonth() + expiry || 0);
-
-//     const subscription = await Subscription.findOne({ user: id });
-//     if (!subscription) {
-//       // 6) Create subscription document
-//       const subscription = new Subscription({
-//         user: id,
-//         fullName,
-//         phoneNumber,
-//         screenshotUrl: "approved by admin",
-//         expiresAt,
-//       });
-
-//       await subscription.save();
-//     }
-
-//     const user = await User.findByIdAndUpdate(
-//       id,
-//       { status: "Approved", "metadata.exp_date": expiresAt },
-//       { new: true }
-//     );
-//     if (!user) return res.status(404).json({ message: "User not found" });
-
-//     res.json({ message: "User approved successfully", user });
-//   } catch (error) {
-//     console.error("Error approving user:", error);
-//     res.status(500).json({ error: error.message });
-//   }
-// };
 
 // ✅ 3. Block a user
 const blockUser = async (req, res) => {
