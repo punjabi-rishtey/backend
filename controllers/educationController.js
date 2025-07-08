@@ -54,7 +54,7 @@ const updateEducationDetails = async (req, res) => {
       {
         new: true,
         runValidators: true,
-        upsert: false // Ensure that a new document is not created if none exists
+        // upsert: false // Ensure that a new document is not created if none exists
       }
     );
 
