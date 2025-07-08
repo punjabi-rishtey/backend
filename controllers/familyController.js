@@ -38,7 +38,7 @@ const updateFamilyDetails = async (req, res) => {
       {
         new: true,
         runValidators: true,
-        upsert: false // Do not create a new document if one isn't found
+        // upsert: false // Do not create a new document if one isn't found
       }
     );
 
