@@ -418,6 +418,24 @@ const addUserFromAdmin = async (req, res) => {
     // ✅ Link Preferences to User
     newUser.preferences = preferenceDoc._id;
     await newUser.save();
+    
+    const family = new Family({ user: newUser._id, user_name: name });
+    const education = new Education({ user: newUser._id, user_name: name });
+    const profession = new Profession({ user: newUser._id, user_name: name });
+    const astrology = new Astrology({ user: newUser._id, user_name: name });
+
+    await Promise.all([
+      family.save(),
+      education.save(),
+      profession.save(),
+      astrology.save(),
+    ]);
+  
+    newUser.family = family._id;
+    newUser.education = education._id;
+    newUser.profession = profession._id;
+    newUser.astrology = astrology._id;
+    await newUser.save();
 
     res
       .status(201)
