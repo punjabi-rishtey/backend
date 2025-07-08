@@ -53,7 +53,7 @@ const updateProfessionDetails = async (req, res) => {
       {
         new: true,
         runValidators: true,
-        // upsert: false // Ensure no new document is created if one isn't found
+        upsert: true // Ensure no new document is created if one isn't found
       }
     );
 
