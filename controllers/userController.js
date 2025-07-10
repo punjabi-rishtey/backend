@@ -482,45 +482,57 @@ const submitInquiry = async (req, res) => {
   }
 };
 
+// const getAllBasicUserDetails = async (req, res) => {
+//   try {
+//     const users = await User.find()
+//       .populate("preferences")
+//       .populate("profession", "occupation designation")
+//       .select(
+//         "name dob gender height religion marital_status caste language mangalik profile_pictures preferences profession metadata.register_date"
+//       ) // Added metadata.register_date
+//       .lean();
+
+//     if (!users || users.length === 0) {
+//       return res.status(404).json({ message: "No users found" });
+//     }
+
+//     const formattedUsers = users.map((user) => ({
+//       name: user.name,
+//       age: user.dob
+//         ? new Date().getFullYear() - new Date(user.dob).getFullYear()
+//         : null,
+//       gender: user.gender,
+//       height: user.height,
+//       religion: user.religion,
+//       marital_status: user.marital_status,
+//       caste: user.caste,
+//       occupation: user.profession?.occupation || null,
+//       language: user.language,
+//       manglik: user.mangalik, // Note: Schema uses 'mangalik', but API uses 'manglik'
+//       preferences: user.preferences || {_id:user._id} || {},
+//       profile_picture:
+//         user.profile_pictures?.length > 0 ? user.profile_pictures[0] : null,
+//       metadata: {
+//         register_date: user.metadata?.register_date || null, // Include register_date
+//       },
+//     }));
+
+//     res.json(formattedUsers);
+//   } catch (error) {
+//     console.error("Error fetching all user details:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 const getAllBasicUserDetails = async (req, res) => {
   try {
-    const users = await User.find()
-      .populate("preferences")
-      .populate("profession", "occupation designation")
-      .select(
-        "name dob gender height religion marital_status caste language mangalik profile_pictures preferences profession metadata.register_date"
-      ) // Added metadata.register_date
-      .lean();
+    const users = await User.find({})
+      .select("name age gender height religion marital_status caste occupation language manglik profile_picture metadata preferences")
+      .populate("preferences", "_id user preference1 preference2 preference3"); // Adjust fields as needed
 
-    if (!users || users.length === 0) {
-      return res.status(404).json({ message: "No users found" });
-    }
-
-    const formattedUsers = users.map((user) => ({
-      name: user.name,
-      age: user.dob
-        ? new Date().getFullYear() - new Date(user.dob).getFullYear()
-        : null,
-      gender: user.gender,
-      height: user.height,
-      religion: user.religion,
-      marital_status: user.marital_status,
-      caste: user.caste,
-      occupation: user.profession?.occupation || null,
-      language: user.language,
-      manglik: user.mangalik, // Note: Schema uses 'mangalik', but API uses 'manglik'
-      preferences: user.preferences || {_id:user._id} || {},
-      profile_picture:
-        user.profile_pictures?.length > 0 ? user.profile_pictures[0] : null,
-      metadata: {
-        register_date: user.metadata?.register_date || null, // Include register_date
-      },
-    }));
-
-    res.json(formattedUsers);
-  } catch (error) {
-    console.error("Error fetching all user details:", error);
-    res.status(500).json({ error: error.message });
+    res.status(200).json(users);
+  } catch (err) {
+    console.error("Error fetching users:", err);
+    res.status(500).json({ message: "Server error fetching users." });
   }
 };
 
