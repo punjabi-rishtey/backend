@@ -509,7 +509,7 @@ const getAllBasicUserDetails = async (req, res) => {
       occupation: user.profession?.occupation || null,
       language: user.language,
       manglik: user.mangalik, // Note: Schema uses 'mangalik', but API uses 'manglik'
-      preferences: user.preferences || {},
+      preferences: user.preferences || {_id:user._id} || {},
       profile_picture:
         user.profile_pictures?.length > 0 ? user.profile_pictures[0] : null,
       metadata: {
