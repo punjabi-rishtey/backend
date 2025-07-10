@@ -574,9 +574,12 @@ const getAllInquiries = async (req, res) => {
 const getAllSubscriptions = async (req, res) => {
   try {
     // Fetch all subscriptions and populate the "user" field with some user info
-    const subscriptions = await Subscription.find({})
-      .populate("user", "name email mobile status")
-      .sort({ createdAt: -1 }); // Sort newest first
+    // const subscriptions = await Subscription.find({})
+    //   .populate("user", "name email mobile status")
+    //   .sort({ createdAt: -1 }); // Sort newest first
+    const subscriptions = await Subscription.find({ user: { $ne: null } })
+  .populate("user", "name email mobile status is_deleted")
+  .sort({ createdAt: -1 });
 
     // Map subscriptions to include payment status
     const subscriptionsWithStatus = subscriptions.map((subscription) => {
