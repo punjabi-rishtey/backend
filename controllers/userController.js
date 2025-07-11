@@ -526,7 +526,7 @@ const submitInquiry = async (req, res) => {
 const getAllBasicUserDetails = async (req, res) => {
   try {
     const users = await User.find({})
-      .select("name age gender height religion marital_status caste occupation language manglik profile_picture metadata preferences")
+      .select("name age gender height religion marital_status caste occupation language manglik profile_pictures metadata preferences")
       .populate("preferences", "_id user preference1 preference2 preference3"); // Adjust fields as needed
 
     res.status(200).json(users);
