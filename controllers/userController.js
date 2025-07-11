@@ -526,8 +526,13 @@ const submitInquiry = async (req, res) => {
 const getAllBasicUserDetails = async (req, res) => {
   try {
     const users = await User.find({})
-      .select("name age gender height religion marital_status caste occupation language manglik profile_pictures metadata preferences")
-      .populate("preferences", "_id user preference1 preference2 preference3"); // Adjust fields as needed
+      .populate("preferences")
+      .populate("profession", "occupation designation")
+      .select(
+        "name dob gender height religion marital_status caste language mangalik profile_pictures preferences profession metadata.register_date"
+      ) // Added metadata.register_date
+      .lean();
+    
 
       const formattedUsers = users.map((user) => ({
         name: user.name,
