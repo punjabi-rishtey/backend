@@ -263,6 +263,7 @@ const approveUser = async (req, res) => {
       // Update existing subscription's expiresAt
       subscription.createdAt = start
       subscription.expiresAt = expiresAt;
+      subscription.screenshotUrl = "approved by admin"
       await subscription.save();
     }
 
