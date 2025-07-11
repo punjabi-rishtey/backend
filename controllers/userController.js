@@ -536,6 +536,7 @@ const getAllBasicUserDetails = async (req, res) => {
 
       const formattedUsers = users.map((user) => ({
         name: user.name,
+        user: user._id
         age: user.dob
           ? new Date().getFullYear() - new Date(user.dob).getFullYear()
           : null,
