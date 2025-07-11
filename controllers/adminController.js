@@ -244,7 +244,7 @@ const approveUser = async (req, res) => {
     // Calculate expiresAt based on startDate
     const expiresAt = new Date(start);
     expiresAt.setMonth(start.getMonth() + parsedExpiry);
-    consolse.log("expires At: ", expiresAt, start.getMonth(), parsedExpiry)
+    console.log("expires At: ", expiresAt, start.getMonth(), parsedExpiry)
 
     // Check if subscription exists
     let subscription = await Subscription.findOne({ user: id });
