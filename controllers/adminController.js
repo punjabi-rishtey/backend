@@ -212,10 +212,13 @@ const approveUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { expiry, startDate } = req.query;
-
+    console.log("expiry, startDate: ", expiry, startDate)
+    
+    
     // Validate and parse expiry
     const parsedExpiry = Number(expiry);
     if (isNaN(parsedExpiry) || parsedExpiry <= 0) {
+      console.log("Invalid expiry value. Must be a positive number")
       return res
         .status(400)
         .json({ message: "Invalid expiry value. Must be a positive number." });
@@ -224,6 +227,7 @@ const approveUser = async (req, res) => {
     // Validate startDate
     const start = new Date(startDate);
     if (isNaN(start.getTime())) {
+      console.log("Invalid start date. Must be a valid date")
       return res
         .status(400)
         .json({ message: "Invalid start date. Must be a valid date." });
@@ -240,6 +244,7 @@ const approveUser = async (req, res) => {
     // Calculate expiresAt based on startDate
     const expiresAt = new Date(start);
     expiresAt.setMonth(start.getMonth() + parsedExpiry);
+    consolse.log("expires At: ", expiresAt, start.getMonth(), parsedExpiry)
 
     // Check if subscription exists
     let subscription = await Subscription.findOne({ user: id });
