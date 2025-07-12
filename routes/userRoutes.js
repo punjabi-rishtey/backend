@@ -1,3 +1,75 @@
+const express = require("express");
+const {
+  registerUser,
+  loginUser,
+  searchMatches,
+  getUserProfile,
+  updateUserProfile,
+  uploadProfilePictures,
+  deleteProfilePicture,
+  logoutUser,
+  forgotPassword,
+  submitInquiry,
+  resetPassword,
+  getAllBasicUserDetails,
+  getProfileCompletion,
+  createSubscription,
+  getUserSubscription,
+} = require("../controllers/userController");
+
+const protect = require("../middleware/authMiddleware");
+const upload = require("../middleware/uploadMiddleware");
+const checkProfileCompletion = require("../middleware/checkProfileCompletion");
+
+const router = express.Router();
+
+// New route to fetch basic details of all users
+router.get("/all-basic", getAllBasicUserDetails);
+
+// Updated register route to handle file uploads
+router.post("/register", upload.array("profile_pictures", 10), registerUser);
+
+router.post("/login", loginUser);
+
+router.get("/search", protect, searchMatches);
+
+router.get("/find-my-partner", protect, checkProfileCompletion, (req, res) => {
+  res.json({ message: "Welcome to Find My Partner!" });
+});
+
+router.get("/profile-completion", protect, getProfileCompletion);
+
+router.post("/subscribe", protect, upload.single("image"), createSubscription);
+
+router.get("/subscription/:id", getUserSubscription);
+
+router.get("/:id", protect, getUserProfile);
+
+router.put("/:id", protect, updateUserProfile);
+
+router.post(
+  "/:id/upload",
+  protect,
+  upload.array("profile_pictures", 10),
+  uploadProfilePictures
+);
+
+router.delete("/:id/delete-picture", protect, deleteProfilePicture);
+
+router.post("/logout", protect, logoutUser);
+
+router.post("/forgot-password", forgotPassword);
+
+router.post("/reset-password/:token", resetPassword);
+
+router.post("/inquiries/submit", submitInquiry);
+
+module.exports = router;
+
+
+//
+
+// v1
 // const express = require("express");
 // const { registerUser, loginUser, searchMatches, getUserProfile, updateUserProfile, uploadProfilePictures,deleteProfilePicture, logoutUser, forgotPassword, resetPassword} = require("../controllers/userController");
 
@@ -46,75 +118,77 @@
 
 // module.exports = router;
 
-const express = require("express");
-const {
-  registerUser,
-  loginUser,
-  searchMatches,
-  getUserProfile,
-  updateUserProfile,
-  uploadProfilePictures,
-  deleteProfilePicture,
-  logoutUser,
-  forgotPassword,
-  submitInquiry,
-  resetPassword,
-  getAllBasicUserDetails,
-  getProfileCompletion,
-  createSubscription,
-  getUserSubscription,
-} = require("../controllers/userController");
 
-const protect = require("../middleware/authMiddleware");
-const upload = require("../middleware/uploadMiddleware");
-const checkProfileCompletion = require("../middleware/checkProfileCompletion");
+// v2
+// const express = require("express");
+// const {
+//   registerUser,
+//   loginUser,
+//   searchMatches,
+//   getUserProfile,
+//   updateUserProfile,
+//   uploadProfilePictures,
+//   deleteProfilePicture,
+//   logoutUser,
+//   forgotPassword,
+//   submitInquiry,
+//   resetPassword,
+//   getAllBasicUserDetails,
+//   getProfileCompletion,
+//   createSubscription,
+//   getUserSubscription,
+// } = require("../controllers/userController");
 
-const router = express.Router();
+// const protect = require("../middleware/authMiddleware");
+// const upload = require("../middleware/uploadMiddleware");
+// const checkProfileCompletion = require("../middleware/checkProfileCompletion");
 
-// New route to fetch basic details of all users
-router.get("/all-basic", getAllBasicUserDetails);
+// const router = express.Router();
 
-router.post("/register", registerUser);
+// // New route to fetch basic details of all users
+// router.get("/all-basic", getAllBasicUserDetails);
 
-router.post("/login", loginUser);
+// router.post("/register", registerUser);
 
-router.get("/search", protect, searchMatches);
+// router.post("/login", loginUser);
 
-router.get("/find-my-partner", protect, checkProfileCompletion, (req, res) => {
-  res.json({ message: "Welcome to Find My Partner!" });
-});
+// router.get("/search", protect, searchMatches);
 
-router.get("/profile-completion", protect, getProfileCompletion);
+// router.get("/find-my-partner", protect, checkProfileCompletion, (req, res) => {
+//   res.json({ message: "Welcome to Find My Partner!" });
+// });
 
-// A route that requires at least 70% profile completion.
-// For example, accessing the "find my partner" page.
+// router.get("/profile-completion", protect, getProfileCompletion);
 
-// router.post("/subscribe", protect, createSubscription);
+// // A route that requires at least 70% profile completion.
+// // For example, accessing the "find my partner" page.
 
-router.post("/subscribe", protect, upload.single("image"), createSubscription);
+// // router.post("/subscribe", protect, createSubscription);
+
+// router.post("/subscribe", protect, upload.single("image"), createSubscription);
 
 
-router.get("/subscription/:id", getUserSubscription);
+// router.get("/subscription/:id", getUserSubscription);
 
-router.get("/:id", protect, getUserProfile);
+// router.get("/:id", protect, getUserProfile);
 
-router.put("/:id", protect, updateUserProfile);
+// router.put("/:id", protect, updateUserProfile);
 
-router.post(
-  "/:id/upload",
-  protect,
-  upload.array("profile_pictures", 10),
-  uploadProfilePictures
-);
+// router.post(
+//   "/:id/upload",
+//   protect,
+//   upload.array("profile_pictures", 10),
+//   uploadProfilePictures
+// );
 
-router.delete("/:id/delete-picture", protect, deleteProfilePicture);
+// router.delete("/:id/delete-picture", protect, deleteProfilePicture);
 
-router.post("/logout", protect, logoutUser);
+// router.post("/logout", protect, logoutUser);
 
-router.post("/forgot-password", forgotPassword);
+// router.post("/forgot-password", forgotPassword);
 
-router.post("/reset-password/:token", resetPassword);
+// router.post("/reset-password/:token", resetPassword);
 
-router.post("/inquiries/submit", submitInquiry);
+// router.post("/inquiries/submit", submitInquiry);
 
-module.exports = router;
+// module.exports = router;
