@@ -28,6 +28,7 @@ const registerUser = async (req, res) => {
       dob,
       religion,
       marital_status,
+      preferences,
     } = req.body;
 
     if (
@@ -62,17 +63,41 @@ const registerUser = async (req, res) => {
         .json({ message: "Email or Mobile number already exists." });
     }
 
-    // Create the user document (Remove password hashing here!)
+    // Handle profile pictures upload
+    let profilePictures = [];
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        console.log("📤 Uploading file:", file.originalname);
+        try {
+          const result = await cloudinary.uploader.upload(file.path, {
+            folder: "profile_pictures",
+            transformation: [{ width: 500, height: 500, crop: "limit" }],
+          });
+          console.log("✅ Cloudinary Upload Success:", result.secure_url);
+          profilePictures.push(result.secure_url);
+        } catch (uploadError) {
+          console.error("❌ Cloudinary Upload Error:", uploadError);
+          return res.status(500).json({
+            error: "Cloudinary upload failed!",
+            details: uploadError.message,
+          });
+        }
+      }
+    }
+
+    // Create the user document
     const user = new User({
       name,
       email,
-      password,
+      password, // Note: Password hashing should be implemented
       mobile,
       gender,
       dob,
       religion,
       marital_status,
       status: "Pending",
+      profile_pictures: profilePictures,
+      preferences: preferences ? JSON.parse(preferences) : [],
     });
 
     await user.save();
@@ -101,6 +126,92 @@ const registerUser = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+// const registerUser = async (req, res) => {
+//   try {
+//     const {
+//       name,
+//       email,
+//       password,
+//       mobile,
+//       gender,
+//       dob,
+//       religion,
+//       marital_status,
+//     } = req.body;
+
+//     if (
+//       !name ||
+//       !email ||
+//       !password ||
+//       !mobile ||
+//       !gender ||
+//       !dob ||
+//       !religion ||
+//       !marital_status
+//     ) {
+//       return res
+//         .status(400)
+//         .json({ message: "All required fields must be provided." });
+//     }
+
+//     if (!validator.isEmail(email)) {
+//       return res.status(400).json({ message: "Invalid email format" });
+//     }
+
+//     if (!/^\d{10}$/.test(mobile)) {
+//       return res
+//         .status(400)
+//         .json({ message: "Invalid mobile number. It must be 10 digits." });
+//     }
+
+//     const existingUser = await User.findOne({ $or: [{ email }, { mobile }] });
+//     if (existingUser) {
+//       return res
+//         .status(400)
+//         .json({ message: "Email or Mobile number already exists." });
+//     }
+
+//     // Create the user document (Remove password hashing here!)
+//     const user = new User({
+//       name,
+//       email,
+//       password,
+//       mobile,
+//       gender,
+//       dob,
+//       religion,
+//       marital_status,
+//       status: "Pending",
+//     });
+
+//     await user.save();
+
+//     const family = new Family({ user: user._id, user_name: name });
+//     const education = new Education({ user: user._id, user_name: name });
+//     const profession = new Profession({ user: user._id, user_name: name });
+//     const astrology = new Astrology({ user: user._id, user_name: name });
+
+//     await Promise.all([
+//       family.save(),
+//       education.save(),
+//       profession.save(),
+//       astrology.save(),
+//     ]);
+
+//     user.family = family._id;
+//     user.education = education._id;
+//     user.profession = profession._id;
+//     user.astrology = astrology._id;
+//     await user.save();
+
+//     res.status(201).json({ message: "User Registered Successfully", user });
+//   } catch (error) {
+//     console.error("❌ Error registering user:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 
 const loginUser = async (req, res) => {
   try {
