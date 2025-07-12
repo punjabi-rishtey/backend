@@ -13,6 +13,7 @@ const checkProfileCompletion = async (req, res, next) => {
     }
 
     const completion = user.calculateProfileCompletion();
+    console.log("> Profile completion", user.name, completion)
 
     if (completion < 70) {
       return res.status(403).json({
