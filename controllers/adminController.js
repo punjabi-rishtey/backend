@@ -430,7 +430,7 @@ const addUserFromAdmin = async (req, res) => {
     }
 
     // ✅ Hash password before saving
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // const hashedPassword = await bcrypt.hash(password, 10);
 
     console.log("Request Body:", req.body);
 
@@ -438,7 +438,7 @@ const addUserFromAdmin = async (req, res) => {
     const newUser = await User.create({
       name,
       email,
-      password: hashedPassword,
+      password,
       mobile,
       gender,
       dob,
