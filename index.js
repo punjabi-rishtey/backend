@@ -96,6 +96,7 @@ const allowedOrigins = [
   "https://user-frontend-seven-virid.vercel.app",
   "https://www.punjabi-rishtey.com/admin",
   "https://www.punjabi-rishtey.com",
+  "https://admin-frontend-revised.vercel.app",
 ];
 
 const corsOptions = {
