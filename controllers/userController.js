@@ -31,6 +31,7 @@ const registerUser = async (req, res) => {
       preferences,
     } = req.body;
 
+    // Validate required fields
     if (
       !name ||
       !email ||
@@ -46,16 +47,19 @@ const registerUser = async (req, res) => {
         .json({ message: "All required fields must be provided." });
     }
 
+    // Validate email format
     if (!validator.isEmail(email)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
+    // Validate mobile number
     if (!/^\d{10}$/.test(mobile)) {
       return res
         .status(400)
         .json({ message: "Invalid mobile number. It must be 10 digits." });
     }
 
+    // Check for existing user
     const existingUser = await User.findOne({ $or: [{ email }, { mobile }] });
     if (existingUser) {
       return res
@@ -85,11 +89,21 @@ const registerUser = async (req, res) => {
       }
     }
 
+    // Parse preferences if provided
+    let preferenceData = {};
+    if (preferences) {
+      try {
+        preferenceData = JSON.parse(preferences); // Expecting an object like { preference1, preference2, preference3 }
+      } catch (parseError) {
+        return res.status(400).json({ message: "Invalid preferences format" });
+      }
+    }
+
     // Create the user document
     const user = new User({
       name,
       email,
-      password, // Note: Password hashing should be implemented
+      password, // Note: Password hashing is handled by the schema's pre-save hook
       mobile,
       gender,
       dob,
@@ -97,16 +111,29 @@ const registerUser = async (req, res) => {
       marital_status,
       status: "Pending",
       profile_pictures: profilePictures,
-      preferences: preferences ? JSON.parse(preferences) : [],
     });
 
+    // Save the user first to get the user._id
     await user.save();
 
+    // Create related documents
     const family = new Family({ user: user._id, user_name: name });
     const education = new Education({ user: user._id, user_name: name });
     const profession = new Profession({ user: user._id, user_name: name });
     const astrology = new Astrology({ user: user._id, user_name: name });
+    
+    // Create a Preference document if preferences are provided
+    let preference = null;
+    if (Object.keys(preferenceData).length > 0) {
+      preference = new Preference({
+        user: user._id,
+        ...preferenceData, // Spread the parsed preferences (e.g., preference1, preference2, preference3)
+      });
+      await preference.save();
+      user.preferences = preference._id; // Assign the Preference document's _id
+    }
 
+    // Save related documents
     await Promise.all([
       family.save(),
       education.save(),
@@ -114,6 +141,7 @@ const registerUser = async (req, res) => {
       astrology.save(),
     ]);
 
+    // Update user with references to related documents
     user.family = family._id;
     user.education = education._id;
     user.profession = profession._id;
@@ -126,6 +154,117 @@ const registerUser = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+// const registerUser = async (req, res) => {
+//   try {
+//     const {
+//       name,
+//       email,
+//       password,
+//       mobile,
+//       gender,
+//       dob,
+//       religion,
+//       marital_status,
+//       preferences,
+//     } = req.body;
+
+//     if (
+//       !name ||
+//       !email ||
+//       !password ||
+//       !mobile ||
+//       !gender ||
+//       !dob ||
+//       !religion ||
+//       !marital_status
+//     ) {
+//       return res
+//         .status(400)
+//         .json({ message: "All required fields must be provided." });
+//     }
+
+//     if (!validator.isEmail(email)) {
+//       return res.status(400).json({ message: "Invalid email format" });
+//     }
+
+//     if (!/^\d{10}$/.test(mobile)) {
+//       return res
+//         .status(400)
+//         .json({ message: "Invalid mobile number. It must be 10 digits." });
+//     }
+
+//     const existingUser = await User.findOne({ $or: [{ email }, { mobile }] });
+//     if (existingUser) {
+//       return res
+//         .status(400)
+//         .json({ message: "Email or Mobile number already exists." });
+//     }
+
+//     // Handle profile pictures upload
+//     let profilePictures = [];
+//     if (req.files && req.files.length > 0) {
+//       for (const file of req.files) {
+//         console.log("📤 Uploading file:", file.originalname);
+//         try {
+//           const result = await cloudinary.uploader.upload(file.path, {
+//             folder: "profile_pictures",
+//             transformation: [{ width: 500, height: 500, crop: "limit" }],
+//           });
+//           console.log("✅ Cloudinary Upload Success:", result.secure_url);
+//           profilePictures.push(result.secure_url);
+//         } catch (uploadError) {
+//           console.error("❌ Cloudinary Upload Error:", uploadError);
+//           return res.status(500).json({
+//             error: "Cloudinary upload failed!",
+//             details: uploadError.message,
+//           });
+//         }
+//       }
+//     }
+
+//     // Create the user document
+//     const user = new User({
+//       name,
+//       email,
+//       password, // Note: Password hashing should be implemented
+//       mobile,
+//       gender,
+//       dob,
+//       religion,
+//       marital_status,
+//       status: "Pending",
+//       profile_pictures: profilePictures,
+//       preferences: preferences ? JSON.parse(preferences) : [],
+//     });
+
+//     await user.save();
+
+//     const family = new Family({ user: user._id, user_name: name });
+//     const education = new Education({ user: user._id, user_name: name });
+//     const profession = new Profession({ user: user._id, user_name: name });
+//     const astrology = new Astrology({ user: user._id, user_name: name });
+
+//     await Promise.all([
+//       family.save(),
+//       education.save(),
+//       profession.save(),
+//       astrology.save(),
+//     ]);
+
+//     user.family = family._id;
+//     user.education = education._id;
+//     user.profession = profession._id;
+//     user.astrology = astrology._id;
+//     await user.save();
+
+//     res.status(201).json({ message: "User Registered Successfully", user });
+//   } catch (error) {
+//     console.error("❌ Error registering user:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
 
 
 // const registerUser = async (req, res) => {
