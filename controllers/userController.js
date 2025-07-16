@@ -779,7 +779,7 @@ const getAllBasicUserDetails = async (req, res) => {
       .populate("preferences")
       .populate("profession", "occupation designation")
       .select(
-        "name dob gender height religion marital_status caste language mangalik profile_pictures preferences profession metadata.register_date"
+        "name dob gender height religion marital_status caste language mangalik profile_pictures preferences profession metadata.register_date status"
       ) // Added metadata.register_date
       .lean();
     
