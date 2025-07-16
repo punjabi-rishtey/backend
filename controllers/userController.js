@@ -804,6 +804,7 @@ const getAllBasicUserDetails = async (req, res) => {
         metadata: {
           register_date: user.metadata?.register_date || null, // Include register_date
         },
+        status: user.status
     }));
 
     res.status(200).json(formattedUsers);
