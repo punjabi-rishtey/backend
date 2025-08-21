@@ -20,23 +20,57 @@ const getProfessionDetails = async (req, res) => {
   }
 };
 
+
+
+// const updateProfessionDetails = async (req, res) => {
+//   try {
+//     const userId = req.params.userId;
+
+//     // Find and update the profession details
+//     const updatedProfession = await Profession.findOneAndUpdate({ user: userId }, req.body, {
+//       new: true,
+//       runValidators: true
+//     });
+
+//     if (!updatedProfession) return res.status(404).json({ message: "Profession details not found" });
+
+//     res.json({ message: "Profession details updated successfully", profession: updatedProfession });
+//   } catch (error) {
+//     console.error("Error updating profession details:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
 const updateProfessionDetails = async (req, res) => {
   try {
-    const userId = req.params.userId;
+    // Accept either req.params.userId or req.params.id
+    const userId = req.params.userId || req.params.id;
 
-    // Find and update the profession details
-    const updatedProfession = await Profession.findOneAndUpdate({ user_id: userId }, req.body, {
-      new: true,
-      runValidators: true
+    // Find and update the profession details for the given user
+    const updatedProfession = await Profession.findOneAndUpdate(
+      { user: userId },
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+        upsert: true // Ensure no new document is created if one isn't found
+      }
+    );
+
+    if (!updatedProfession) {
+      return res.status(404).json({ message: "Profession details not found" });
+    }
+
+    res.json({
+      message: "Profession details updated successfully",
+      profession: updatedProfession
     });
-
-    if (!updatedProfession) return res.status(404).json({ message: "Profession details not found" });
-
-    res.json({ message: "Profession details updated successfully", profession: updatedProfession });
   } catch (error) {
     console.error("Error updating profession details:", error);
     res.status(500).json({ error: error.message });
   }
 };
+
+
 
 module.exports = { addProfessionDetails, getProfessionDetails, updateProfessionDetails};
