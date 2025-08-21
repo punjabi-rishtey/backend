@@ -27,8 +27,8 @@ const userSchema = new mongoose.Schema({
   // status: { type: String, default: "Incomplete" },
   status: { 
     type: String, 
-    enum: ["Incomplete", "Pending", "Approved", "Expired", "Canceled"], 
-    default: "Pending" // New users will now be "Pending" by default
+    enum: ["Incomplete", "Pending", "Approved", "Expired", "Canceled", "Unapproved"], 
+    default: "Unapproved" // New users will now be "Pending" by default
   },
   mangalik: Boolean,
   language: String,
