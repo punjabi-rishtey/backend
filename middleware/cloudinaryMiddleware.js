@@ -28,7 +28,7 @@ const upload = multer({
 
 // ✅ Log Errors
 upload.single("image").handleFile = function handleFile(req, file, cb) {
-  console.log("🖼 Uploading file to Cloudinary:", file.originalname);
+  console.log("Uploading file to Cloudinary:", file.originalname);
   cb(null, file);
 };
 

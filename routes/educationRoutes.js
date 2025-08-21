@@ -124,3 +124,6 @@ router.get("/:userId", protect, getEducationDetails);
 router.put("/:userId", protect, updateEducationDetails);
 
 module.exports = router;
+
+
+

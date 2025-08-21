@@ -5,7 +5,6 @@ const astrologySchema = new mongoose.Schema({
   user_name: { type: String, required: true },
   rashi_nakshatra: String,
   gotra: String,
-  gotra_mama: String,
 });
 
 const Astrology = mongoose.model("Astrology", astrologySchema);

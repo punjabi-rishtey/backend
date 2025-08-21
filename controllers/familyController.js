@@ -26,17 +26,25 @@ const getFamilyDetails = async (req, res) => {
 };
 
 
+
 const updateFamilyDetails = async (req, res) => {
   try {
-    const userId = req.params.userId;
+    const userId = req.params.userId || req.params.id;
 
-    // Find and update the family details
-    const updatedFamily = await Family.findOneAndUpdate({ user_id: userId }, req.body, {
-      new: true,
-      runValidators: true
-    });
+    // Find and update the family details for the given user
+    const updatedFamily = await Family.findOneAndUpdate(
+      { user: userId },
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+        upsert: true // Do not create a new document if one isn't found
+      }
+    );
 
-    if (!updatedFamily) return res.status(404).json({ message: "Family details not found" });
+    if (!updatedFamily) {
+      return res.status(404).json({ message: "Family details not found" });
+    }
 
     res.json({ message: "Family details updated successfully", family: updatedFamily });
   } catch (error) {
@@ -44,6 +52,30 @@ const updateFamilyDetails = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+
+
+// const updateFamilyDetails = async (req, res) => {
+//   try {
+//     const userId = req.params.userId;
+
+//     // Find and update the family details
+//     const updatedFamily = await Family.findOneAndUpdate({ user: userId }, req.body, {
+//       new: true,
+//       runValidators: true
+//     });
+
+//     if (!updatedFamily) return res.status(404).json({ message: "Family details not found" });
+
+//     res.json({ message: "Family details updated successfully", family: updatedFamily });
+//   } catch (error) {
+//     console.error("Error updating family details:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+
+
 
 
 module.exports = { addFamilyDetails, getFamilyDetails, updateFamilyDetails };
