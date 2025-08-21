@@ -38,8 +38,8 @@ const userSchema = new mongoose.Schema({
   // Status Field (from old code)
   status: { 
     type: String, 
-    enum: ["Incomplete", "Pending", "Approved", "Expired", "Canceled"], 
-    default: "Unapproved" // New users will now be "Pending" by default
+    enum: ["Incomplete", "Pending", "Approved", "Expired", "Canceled", "Unapproved"], 
+    default: "Unapproved"
   },
   
   // Personal Details

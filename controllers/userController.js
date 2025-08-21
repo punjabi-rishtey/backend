@@ -109,7 +109,7 @@ const registerUser = async (req, res) => {
       dob,
       religion,
       marital_status,
-      status: "Pending",
+      status: "Unapproved",
       profile_pictures: profilePictures,
     });
 
