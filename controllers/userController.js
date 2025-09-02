@@ -506,12 +506,14 @@ const updateUserProfile = async (req, res) => {
 
     // Handle manglik field compatibility (support both boolean and string values)
     if (updates.manglik !== undefined) {
+      console.log("Received manglik value:", updates.manglik, "Type:", typeof updates.manglik);
       if (typeof updates.manglik === "boolean") {
         // Convert legacy boolean values to strings
         updates.manglik = updates.manglik ? "manglik" : "non_manglik";
       }
       // Map frontend field name to backend field name
       updates.mangalik = updates.manglik;
+      console.log("Converted to mangalik:", updates.mangalik);
       delete updates.manglik;
     }
 
@@ -530,6 +532,9 @@ const updateUserProfile = async (req, res) => {
       }
     }
 
+    // Debug: Log what we're about to save to database
+    console.log("Final updates object before DB save:", JSON.stringify(updates, null, 2));
+    
     // Update user profile in MongoDB
     const updatedUser = await User.findOneAndUpdate({ _id: userId }, updates, {
       new: true,
