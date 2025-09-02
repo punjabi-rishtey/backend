@@ -481,6 +481,7 @@ const updateUserProfile = async (req, res) => {
       "hobbies",
       "status",
       "mangalik",
+      "manglik", // Frontend compatibility
       "language",
       "marital_status",
       "birth_details",
@@ -501,6 +502,17 @@ const updateUserProfile = async (req, res) => {
     // Convert height object to a string if needed (e.g., {feet:"5", inches:"8"} => "5'8\"")
     if (typeof updates.height === "object") {
       updates.height = `${updates.height.feet}'${updates.height.inches}"`;
+    }
+
+    // Handle manglik field compatibility (support both boolean and string values)
+    if (updates.manglik !== undefined) {
+      if (typeof updates.manglik === "boolean") {
+        // Convert legacy boolean values to strings
+        updates.manglik = updates.manglik ? "manglik" : "non_manglik";
+      }
+      // Map frontend field name to backend field name
+      updates.mangalik = updates.manglik;
+      delete updates.manglik;
     }
 
     // Ensure nested objects update properly (if provided)
