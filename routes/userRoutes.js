@@ -33,8 +33,22 @@ router.post("/login", loginUser);
 
 router.get("/search", protect, searchMatches);
 
-router.get("/find-my-partner", protect, checkProfileCompletion, (req, res) => {
-  res.json({ message: "Welcome to Find My Partner!" });
+router.get("/find-my-partner", protect, checkProfileCompletion, async (req, res) => {
+  try {
+    const User = require("../models/User");
+    const user = await User.findById(req.user.id);
+    
+    // Check if subscription has expired
+    if (user.metadata.exp_date && new Date() > user.metadata.exp_date) {
+      return res.status(403).json({
+        error: "Your subscription has expired. Please renew to access this feature."
+      });
+    }
+    
+    res.json({ message: "Welcome to Find My Partner!" });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 router.get("/profile-completion", protect, getProfileCompletion);
