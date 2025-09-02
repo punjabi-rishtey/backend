@@ -44,7 +44,7 @@ const userSchema = new mongoose.Schema({
   
   // Personal Details
   marital_status: { type: String, required: true },
-  mangalik: { type: String, default: false },
+  mangalik: { type: String, default: "" },
   language: String,
   hobbies: [String],
   
