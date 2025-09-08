@@ -15,6 +15,7 @@ const {
   getProfileCompletion,
   createSubscription,
   getUserSubscription,
+  deleteAccount,
 } = require("../controllers/userController");
 
 const protect = require("../middleware/authMiddleware");
@@ -77,6 +78,10 @@ router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:token", resetPassword);
 
 router.post("/inquiries/submit", submitInquiry);
+
+// Google Play Console compliant account deletion endpoint
+// Requires Authorization: Bearer <token>
+router.delete("/me", protect, deleteAccount);
 
 module.exports = router;
 
