@@ -17,6 +17,66 @@ const Subscription = require("../models/Subscription");
 const Coupon = require("../models/Coupon");
 const Membership = require("../models/Membership");
 
+// Delete current user's account and associated data
+const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Remove profile pictures from Cloudinary if any
+    if (Array.isArray(user.profile_pictures) && user.profile_pictures.length > 0) {
+      for (const imageUrl of user.profile_pictures) {
+        try {
+          // Extract Cloudinary public_id from URL
+          // Example: https://res.cloudinary.com/<cloud>/image/upload/v123/profile_pictures/abc.jpg
+          const urlParts = imageUrl.split("/");
+          const uploadIdx = urlParts.findIndex((p) => p === "upload");
+          let publicId = null;
+          if (uploadIdx !== -1 && uploadIdx + 1 < urlParts.length) {
+            publicId = urlParts
+              .slice(uploadIdx + 1) // v123/profile_pictures/abc.jpg
+              .join("/")
+              .replace(/^v\d+\//, "") // remove version segment
+              .replace(/\.[^/.]+$/, ""); // strip extension
+          }
+
+          if (publicId) {
+            await cloudinary.uploader.destroy(publicId);
+          }
+        } catch (err) {
+          // Continue deleting other assets even if one fails
+          console.error("Error deleting Cloudinary asset:", err.message);
+        }
+      }
+    }
+
+    // Delete related documents
+    await Promise.all([
+      Family.deleteMany({ user: userId }),
+      Education.deleteMany({ user: userId }),
+      Profession.deleteMany({ user: userId }),
+      Astrology.deleteMany({ user: userId }),
+      Preference.deleteMany({ user: userId }),
+      Subscription.deleteMany({ user: userId }),
+    ]);
+
+    // Finally delete the user
+    await User.deleteOne({ _id: userId });
+
+    return res.status(200).json({
+      message: "Account and associated data deleted successfully",
+      deletedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    return res.status(500).json({ error: "Server error while deleting account" });
+  }
+};
+
 const registerUser = async (req, res) => {
   try {
     const {
@@ -1043,6 +1103,7 @@ module.exports = {
   getProfileCompletion,
   createSubscription,
   getUserSubscription,
+  deleteAccount,
 };
 
 // const registerUser = async (req, res) => {
