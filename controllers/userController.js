@@ -28,7 +28,10 @@ const deleteAccount = async (req, res) => {
     }
 
     // Remove profile pictures from Cloudinary if any
-    if (Array.isArray(user.profile_pictures) && user.profile_pictures.length > 0) {
+    if (
+      Array.isArray(user.profile_pictures) &&
+      user.profile_pictures.length > 0
+    ) {
       for (const imageUrl of user.profile_pictures) {
         try {
           // Extract Cloudinary public_id from URL
@@ -73,7 +76,9 @@ const deleteAccount = async (req, res) => {
     });
   } catch (error) {
     console.error("Error deleting account:", error);
-    return res.status(500).json({ error: "Server error while deleting account" });
+    return res
+      .status(500)
+      .json({ error: "Server error while deleting account" });
   }
 };
 
@@ -89,6 +94,8 @@ const registerUser = async (req, res) => {
       religion,
       marital_status,
       preferences,
+      about_myself,
+      looking_for,
     } = req.body;
 
     // Validate required fields
@@ -159,6 +166,34 @@ const registerUser = async (req, res) => {
       }
     }
 
+    // Validate optional textual fields
+    const sanitizeOptionalText = (val, fieldName) => {
+      if (val === undefined) return undefined;
+      if (val === null) return ""; // store empty string for nulls
+      if (typeof val === "string") return val.trim();
+      if (typeof val === "number") return String(val);
+      throw new Error(`${fieldName} must be a string`);
+    };
+
+    let safeAboutMyself, safeLookingFor;
+    try {
+      safeAboutMyself = sanitizeOptionalText(about_myself, "about_myself");
+      safeLookingFor = sanitizeOptionalText(looking_for, "looking_for");
+    } catch (e) {
+      return res.status(400).json({ message: e.message });
+    }
+    // Enforce max length 300
+    if (typeof safeAboutMyself === "string" && safeAboutMyself.length > 300) {
+      return res
+        .status(400)
+        .json({ message: "about_myself must be at most 300 characters" });
+    }
+    if (typeof safeLookingFor === "string" && safeLookingFor.length > 300) {
+      return res
+        .status(400)
+        .json({ message: "looking_for must be at most 300 characters" });
+    }
+
     // Create the user document
     const user = new User({
       name,
@@ -171,6 +206,8 @@ const registerUser = async (req, res) => {
       marital_status,
       status: "Unapproved",
       profile_pictures: profilePictures,
+      ...(safeAboutMyself !== undefined && { about_myself: safeAboutMyself }),
+      ...(safeLookingFor !== undefined && { looking_for: safeLookingFor }),
     });
 
     // Save the user first to get the user._id
@@ -181,7 +218,7 @@ const registerUser = async (req, res) => {
     const education = new Education({ user: user._id, user_name: name });
     const profession = new Profession({ user: user._id, user_name: name });
     const astrology = new Astrology({ user: user._id, user_name: name });
-    
+
     // Create a Preference document if preferences are provided
     let preference = null;
     if (Object.keys(preferenceData).length > 0) {
@@ -214,7 +251,6 @@ const registerUser = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 
 // const registerUser = async (req, res) => {
 //   try {
@@ -325,7 +361,6 @@ const registerUser = async (req, res) => {
 //     res.status(500).json({ error: error.message });
 //   }
 // };
-
 
 // const registerUser = async (req, res) => {
 //   try {
@@ -471,7 +506,9 @@ const getUserSubscription = async (req, res) => {
     const subscription = await Subscription.findOne({ user: userId });
 
     if (!subscription) {
-      return res.status(404).json({ message: "Subscription not found for this user." });
+      return res
+        .status(404)
+        .json({ message: "Subscription not found for this user." });
     }
 
     return res.status(200).json({ success: true, data: subscription });
@@ -480,7 +517,6 @@ const getUserSubscription = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 
 const getUserProfile = async (req, res) => {
   try {
@@ -549,6 +585,8 @@ const updateUserProfile = async (req, res) => {
       "lifestyle",
       "location",
       "caste", // <-- newly added field
+      "about_myself",
+      "looking_for",
     ];
 
     // Filter only allowed fields
@@ -566,7 +604,12 @@ const updateUserProfile = async (req, res) => {
 
     // Handle manglik field compatibility (support both boolean and string values)
     if (updates.manglik !== undefined) {
-      console.log("Received manglik value:", updates.manglik, "Type:", typeof updates.manglik);
+      console.log(
+        "Received manglik value:",
+        updates.manglik,
+        "Type:",
+        typeof updates.manglik
+      );
       if (typeof updates.manglik === "boolean") {
         // Convert legacy boolean values to strings
         updates.manglik = updates.manglik ? "manglik" : "non_manglik";
@@ -580,9 +623,72 @@ const updateUserProfile = async (req, res) => {
     // Ensure nested objects update properly (if provided)
     if (updates.birth_details)
       updates.birth_details = { ...updates.birth_details };
-    if (updates.lifestyle) updates.lifestyle = { ...updates.lifestyle };
+    if (updates.lifestyle) {
+      updates.lifestyle = { ...updates.lifestyle };
+      // Support camelCase from frontend
+      if (
+        Object.prototype.hasOwnProperty.call(
+          updates.lifestyle,
+          "abroadReady"
+        ) &&
+        !Object.prototype.hasOwnProperty.call(updates.lifestyle, "abroad_ready")
+      ) {
+        updates.lifestyle.abroad_ready = updates.lifestyle.abroadReady;
+        delete updates.lifestyle.abroadReady;
+      }
+      // Coerce abroad_ready to boolean or null if provided as string
+      if (
+        Object.prototype.hasOwnProperty.call(updates.lifestyle, "abroad_ready")
+      ) {
+        const val = updates.lifestyle.abroad_ready;
+        if (val === null || val === undefined || val === "") {
+          updates.lifestyle.abroad_ready = null;
+        } else if (typeof val === "string") {
+          const lower = val.toLowerCase();
+          if (["true", "1", "yes", "y"].includes(lower))
+            updates.lifestyle.abroad_ready = true;
+          else if (["false", "0", "no", "n"].includes(lower))
+            updates.lifestyle.abroad_ready = false;
+          else updates.lifestyle.abroad_ready = null; // fallback for unrecognized strings
+        } else if (typeof val !== "boolean") {
+          updates.lifestyle.abroad_ready = null;
+        }
+      }
+    }
     if (updates.physical_attributes)
       updates.physical_attributes = { ...updates.physical_attributes };
+
+    // Sanitize optional text fields if provided
+    const sanitizeOptionalTextUpdate = (val) => {
+      if (val === null) return "";
+      if (val === undefined) return undefined;
+      if (typeof val === "string") return val.trim();
+      if (typeof val === "number") return String(val);
+      // If invalid type (object/array/boolean), reject
+      return { __invalid: true };
+    };
+    if (Object.prototype.hasOwnProperty.call(updates, "about_myself")) {
+      const v = sanitizeOptionalTextUpdate(updates.about_myself);
+      if (v && v.__invalid)
+        return res.status(400).json({ error: "about_myself must be a string" });
+      if (typeof v === "string" && v.length > 300) {
+        return res
+          .status(400)
+          .json({ error: "about_myself must be at most 300 characters" });
+      }
+      updates.about_myself = v;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, "looking_for")) {
+      const v = sanitizeOptionalTextUpdate(updates.looking_for);
+      if (v && v.__invalid)
+        return res.status(400).json({ error: "looking_for must be a string" });
+      if (typeof v === "string" && v.length > 300) {
+        return res
+          .status(400)
+          .json({ error: "looking_for must be at most 300 characters" });
+      }
+      updates.looking_for = v;
+    }
 
     // Prevent duplicate mobile number issue
     if (updates.mobile) {
@@ -593,8 +699,11 @@ const updateUserProfile = async (req, res) => {
     }
 
     // Debug: Log what we're about to save to database
-    console.log("Final updates object before DB save:", JSON.stringify(updates, null, 2));
-    
+    console.log(
+      "Final updates object before DB save:",
+      JSON.stringify(updates, null, 2)
+    );
+
     // Update user profile in MongoDB
     const updatedUser = await User.findOneAndUpdate({ _id: userId }, updates, {
       new: true,
@@ -859,29 +968,28 @@ const getAllBasicUserDetails = async (req, res) => {
         "name dob gender height religion marital_status caste language mangalik profile_pictures preferences profession metadata.register_date status"
       ) // Added metadata.register_date
       .lean();
-    
 
-      const formattedUsers = users.map((user) => ({
-        name: user.name,
-        user: user._id,
-        age: user.dob
-          ? new Date().getFullYear() - new Date(user.dob).getFullYear()
-          : null,
-        gender: user.gender,
-        height: user.height,
-        religion: user.religion,
-        marital_status: user.marital_status,
-        caste: user.caste,
-        occupation: user.profession?.occupation || null,
-        language: user.language,
-        manglik: user.mangalik, // Note: Schema uses 'mangalik', but API uses 'manglik'
-        preferences: user.preferences || {_id:user._id} || {},
-        profile_picture:
-          user.profile_pictures?.length > 0 ? user.profile_pictures[0] : null,
-        metadata: {
-          register_date: user.metadata?.register_date || null, // Include register_date
-        },
-        status: user.status
+    const formattedUsers = users.map((user) => ({
+      name: user.name,
+      user: user._id,
+      age: user.dob
+        ? new Date().getFullYear() - new Date(user.dob).getFullYear()
+        : null,
+      gender: user.gender,
+      height: user.height,
+      religion: user.religion,
+      marital_status: user.marital_status,
+      caste: user.caste,
+      occupation: user.profession?.occupation || null,
+      language: user.language,
+      manglik: user.mangalik, // Note: Schema uses 'mangalik', but API uses 'manglik'
+      preferences: user.preferences || { _id: user._id } || {},
+      profile_picture:
+        user.profile_pictures?.length > 0 ? user.profile_pictures[0] : null,
+      metadata: {
+        register_date: user.metadata?.register_date || null, // Include register_date
+      },
+      status: user.status,
     }));
 
     res.status(200).json(formattedUsers);
