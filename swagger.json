@@ -15,12 +15,8 @@
     "/api/users/me": {
       "delete": {
         "summary": "Delete current user's account and data",
-        "tags": [
-          "Users"
-        ],
-        "security": [
-          { "BearerAuth": [] }
-        ],
+        "tags": ["Users"],
+        "security": [{ "BearerAuth": [] }],
         "responses": {
           "200": { "description": "Account deleted successfully" },
           "401": { "description": "Unauthorized" },
@@ -31,9 +27,7 @@
     "/api/admin/auth/register": {
       "post": {
         "summary": "Register a new admin",
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "requestBody": {
           "required": true,
           "content": {
@@ -65,9 +59,7 @@
     "/api/admin/auth/login": {
       "post": {
         "summary": "Admin login",
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "requestBody": {
           "required": true,
           "content": {
@@ -99,9 +91,7 @@
     "/api/admin/auth/dashboard": {
       "get": {
         "summary": "Get admin dashboard statistics",
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "security": [
           {
             "BearerAuth": []
@@ -120,9 +110,7 @@
     "/api/admin/auth/users/{status}": {
       "get": {
         "summary": "Get users by status",
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "security": [
           {
             "BearerAuth": []
@@ -152,9 +140,7 @@
     "/api/admin/auth/users/approve/{id}": {
       "put": {
         "summary": "Approve a user",
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "security": [
           {
             "BearerAuth": []
@@ -184,9 +170,7 @@
     "/api/admin/auth/users/block/{id}": {
       "put": {
         "summary": "Block a user",
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "security": [
           {
             "BearerAuth": []
@@ -216,9 +200,7 @@
     "/api/admin/auth/users/edit/{id}": {
       "put": {
         "summary": "Edit user details",
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "security": [
           {
             "BearerAuth": []
@@ -250,6 +232,16 @@
                   },
                   "status": {
                     "type": "string"
+                  },
+                  "about_myself": {
+                    "type": "string",
+                    "description": "About Myself",
+                    "maxLength": 300
+                  },
+                  "looking_for": {
+                    "type": "string",
+                    "description": "I am looking for",
+                    "maxLength": 300
                   }
                 }
               }
@@ -269,9 +261,7 @@
     "/api/admin/auth/users/add": {
       "post": {
         "summary": "Add a new user from admin panel",
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "security": [
           {
             "BearerAuth": []
@@ -295,6 +285,16 @@
                   },
                   "status": {
                     "type": "string"
+                  },
+                  "about_myself": {
+                    "type": "string",
+                    "description": "About Myself",
+                    "maxLength": 300
+                  },
+                  "looking_for": {
+                    "type": "string",
+                    "description": "I am looking for",
+                    "maxLength": 300
                   }
                 }
               }
@@ -314,9 +314,7 @@
     "/api/admin/auth/dashboard/registrations": {
       "get": {
         "summary": "Get monthly user registrations data",
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "security": [
           {
             "BearerAuth": []
@@ -335,9 +333,7 @@
     "/api/admin/auth/dashboard/status-counts": {
       "get": {
         "summary": "Get user status counts",
-        "tags": [
-          "Admin"
-        ],
+        "tags": ["Admin"],
         "security": [
           {
             "BearerAuth": []
@@ -356,9 +352,7 @@
     "/api/astrologies/": {
       "post": {
         "summary": "Add astrology details",
-        "tags": [
-          "Astrology"
-        ],
+        "tags": ["Astrology"],
         "security": [
           {
             "BearerAuth": []
@@ -401,9 +395,7 @@
     "/api/astrologies/{userId}": {
       "get": {
         "summary": "Get astrology details for a user",
-        "tags": [
-          "Astrology"
-        ],
+        "tags": ["Astrology"],
         "security": [
           {
             "BearerAuth": []
@@ -431,9 +423,7 @@
       },
       "put": {
         "summary": "Update astrology details",
-        "tags": [
-          "Astrology"
-        ],
+        "tags": ["Astrology"],
         "security": [
           {
             "BearerAuth": []
@@ -490,9 +480,7 @@
     "/api/educations/": {
       "post": {
         "summary": "Add education details",
-        "tags": [
-          "Education"
-        ],
+        "tags": ["Education"],
         "security": [
           {
             "BearerAuth": []
@@ -535,9 +523,7 @@
     "/api/educations/{userId}": {
       "get": {
         "summary": "Get education details for a user",
-        "tags": [
-          "Education"
-        ],
+        "tags": ["Education"],
         "security": [
           {
             "BearerAuth": []
@@ -565,9 +551,7 @@
       },
       "put": {
         "summary": "Update education details",
-        "tags": [
-          "Education"
-        ],
+        "tags": ["Education"],
         "security": [
           {
             "BearerAuth": []
@@ -624,9 +608,7 @@
     "/api/families/": {
       "post": {
         "summary": "Add family details",
-        "tags": [
-          "Families"
-        ],
+        "tags": ["Families"],
         "security": [
           {
             "BearerAuth": []
@@ -672,9 +654,7 @@
     "/api/families/{userId}": {
       "get": {
         "summary": "Get family details for a user",
-        "tags": [
-          "Families"
-        ],
+        "tags": ["Families"],
         "security": [
           {
             "BearerAuth": []
@@ -702,9 +682,7 @@
       },
       "put": {
         "summary": "Update family details",
-        "tags": [
-          "Families"
-        ],
+        "tags": ["Families"],
         "security": [
           {
             "BearerAuth": []
@@ -764,9 +742,7 @@
     "/api/professions/": {
       "post": {
         "summary": "Add profession details",
-        "tags": [
-          "Professions"
-        ],
+        "tags": ["Professions"],
         "security": [
           {
             "BearerAuth": []
@@ -809,9 +785,7 @@
     "/api/professions/{userId}": {
       "get": {
         "summary": "Get profession details for a user",
-        "tags": [
-          "Professions"
-        ],
+        "tags": ["Professions"],
         "security": [
           {
             "BearerAuth": []
@@ -839,9 +813,7 @@
       },
       "put": {
         "summary": "Update profession details",
-        "tags": [
-          "Professions"
-        ],
+        "tags": ["Professions"],
         "security": [
           {
             "BearerAuth": []
@@ -898,9 +870,7 @@
     "/api/users/register": {
       "post": {
         "summary": "Register a new user",
-        "tags": [
-          "Users"
-        ],
+        "tags": ["Users"],
         "requestBody": {
           "required": true,
           "content": {
@@ -935,9 +905,7 @@
     "/api/users/login": {
       "post": {
         "summary": "User login",
-        "tags": [
-          "Users"
-        ],
+        "tags": ["Users"],
         "requestBody": {
           "required": true,
           "content": {
@@ -969,9 +937,7 @@
     "/api/users/search": {
       "get": {
         "summary": "Search for potential matches",
-        "tags": [
-          "Users"
-        ],
+        "tags": ["Users"],
         "security": [
           {
             "BearerAuth": []
@@ -1016,9 +982,7 @@
     "/api/users/{id}": {
       "get": {
         "summary": "Get user profile by ID",
-        "tags": [
-          "Users"
-        ],
+        "tags": ["Users"],
         "security": [
           {
             "BearerAuth": []
@@ -1046,9 +1010,7 @@
       },
       "put": {
         "summary": "Update user profile",
-        "tags": [
-          "Users"
-        ],
+        "tags": ["Users"],
         "security": [
           {
             "BearerAuth": []
@@ -1081,6 +1043,16 @@
                   "dob": {
                     "type": "string",
                     "format": "date"
+                  },
+                  "about_myself": {
+                    "type": "string",
+                    "description": "About Myself",
+                    "maxLength": 300
+                  },
+                  "looking_for": {
+                    "type": "string",
+                    "description": "I am looking for",
+                    "maxLength": 300
                   }
                 }
               }
@@ -1100,9 +1072,7 @@
     "/api/users/{id}/upload": {
       "post": {
         "summary": "Upload profile pictures",
-        "tags": [
-          "Users"
-        ],
+        "tags": ["Users"],
         "security": [
           {
             "BearerAuth": []
@@ -1151,9 +1121,7 @@
     "/api/users/{id}/delete-picture": {
       "delete": {
         "summary": "Delete a profile picture",
-        "tags": [
-          "Users"
-        ],
+        "tags": ["Users"],
         "security": [
           {
             "BearerAuth": []
@@ -1198,9 +1166,7 @@
     "/api/users/logout": {
       "post": {
         "summary": "Logout user",
-        "tags": [
-          "Users"
-        ],
+        "tags": ["Users"],
         "security": [
           {
             "BearerAuth": []
@@ -1219,9 +1185,7 @@
     "/api/users/forgot-password": {
       "post": {
         "summary": "Send password reset email",
-        "tags": [
-          "Users"
-        ],
+        "tags": ["Users"],
         "requestBody": {
           "required": true,
           "content": {
@@ -1250,9 +1214,7 @@
     "/api/users/reset-password/{token}": {
       "post": {
         "summary": "Reset user password",
-        "tags": [
-          "Users"
-        ],
+        "tags": ["Users"],
         "parameters": [
           {
             "in": "path",

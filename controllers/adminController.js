@@ -212,13 +212,12 @@ const approveUser = async (req, res) => {
   try {
     const { id } = req.params;
     const { expiry, startDate } = req.query;
-    console.log("expiry, startDate: ", expiry, startDate)
-    
-    
+    console.log("expiry, startDate: ", expiry, startDate);
+
     // Validate and parse expiry
     const parsedExpiry = Number(expiry);
     if (isNaN(parsedExpiry) || parsedExpiry <= 0) {
-      console.log("Invalid expiry value. Must be a positive number")
+      console.log("Invalid expiry value. Must be a positive number");
       return res
         .status(400)
         .json({ message: "Invalid expiry value. Must be a positive number." });
@@ -227,7 +226,7 @@ const approveUser = async (req, res) => {
     // Validate startDate
     const start = new Date(startDate);
     if (isNaN(start.getTime())) {
-      console.log("Invalid start date. Must be a valid date")
+      console.log("Invalid start date. Must be a valid date");
       return res
         .status(400)
         .json({ message: "Invalid start date. Must be a valid date." });
@@ -244,7 +243,7 @@ const approveUser = async (req, res) => {
     // Calculate expiresAt based on startDate
     const expiresAt = new Date(start);
     expiresAt.setMonth(start.getMonth() + parsedExpiry);
-    console.log("expires At: ", expiresAt, start.getMonth(), parsedExpiry)
+    console.log("expires At: ", expiresAt, start.getMonth(), parsedExpiry);
 
     // Check if subscription exists
     let subscription = await Subscription.findOne({ user: id });
@@ -256,14 +255,14 @@ const approveUser = async (req, res) => {
         phoneNumber,
         screenshotUrl: "approved by admin",
         expiresAt,
-        createdAt: start
+        createdAt: start,
       });
       await subscription.save();
     } else {
       // Update existing subscription's expiresAt
-      subscription.createdAt = start
+      subscription.createdAt = start;
       subscription.expiresAt = expiresAt;
-      subscription.screenshotUrl = "approved by admin"
+      subscription.screenshotUrl = "approved by admin";
       await subscription.save();
     }
 
@@ -320,6 +319,70 @@ const editUser = async (req, res) => {
   try {
     const { id } = req.params; // Extracting user ID from request params
     const updates = req.body; // Extracting the updated user details from request body
+
+    // Handle new optional text fields sanitization
+    const sanitizeText = (v) => {
+      if (v === undefined) return undefined;
+      if (v === null) return "";
+      if (typeof v === "string") return v.trim();
+      if (typeof v === "number") return String(v);
+      return { __invalid: true };
+    };
+    if (Object.prototype.hasOwnProperty.call(updates, "about_myself")) {
+      const val = sanitizeText(updates.about_myself);
+      if (val && val.__invalid)
+        return res.status(400).json({ error: "about_myself must be a string" });
+      if (typeof val === "string" && val.length > 300) {
+        return res
+          .status(400)
+          .json({ error: "about_myself must be at most 300 characters" });
+      }
+      updates.about_myself = val;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, "looking_for")) {
+      const val = sanitizeText(updates.looking_for);
+      if (val && val.__invalid)
+        return res.status(400).json({ error: "looking_for must be a string" });
+      if (typeof val === "string" && val.length > 300) {
+        return res
+          .status(400)
+          .json({ error: "looking_for must be at most 300 characters" });
+      }
+      updates.looking_for = val;
+    }
+
+    // Normalize nested lifestyle updates, especially abroad_ready -> boolean|null
+    if (updates && typeof updates === "object" && updates.lifestyle) {
+      updates.lifestyle = { ...updates.lifestyle };
+      if (
+        Object.prototype.hasOwnProperty.call(
+          updates.lifestyle,
+          "abroadReady"
+        ) &&
+        !Object.prototype.hasOwnProperty.call(updates.lifestyle, "abroad_ready")
+      ) {
+        updates.lifestyle.abroad_ready = updates.lifestyle.abroadReady;
+        delete updates.lifestyle.abroadReady;
+      }
+      if (
+        Object.prototype.hasOwnProperty.call(updates.lifestyle, "abroad_ready")
+      ) {
+        const val = updates.lifestyle.abroad_ready;
+        if (val === null || val === undefined || val === "") {
+          updates.lifestyle.abroad_ready = null;
+        } else if (typeof val === "string") {
+          const lower = val.toLowerCase();
+          if (["true", "1", "yes", "y"].includes(lower))
+            updates.lifestyle.abroad_ready = true;
+          else if (["false", "0", "no", "n"].includes(lower))
+            updates.lifestyle.abroad_ready = false;
+          else if (lower === "null") updates.lifestyle.abroad_ready = null;
+          else updates.lifestyle.abroad_ready = null;
+        } else if (typeof val !== "boolean") {
+          updates.lifestyle.abroad_ready = null;
+        }
+      }
+    }
 
     // Finding the user by ID and updating the provided fields
     const user = await User.findByIdAndUpdate(id, updates, {
@@ -393,6 +456,33 @@ const addUserFromAdmin = async (req, res) => {
       marital_status,
       preferences,
     } = req.body;
+    const sanitizeText = (v) => {
+      if (v === undefined) return undefined;
+      if (v === null) return "";
+      if (typeof v === "string") return v.trim();
+      if (typeof v === "number") return String(v);
+      return { __invalid: true };
+    };
+    const about_myself = sanitizeText(req.body.about_myself);
+    const looking_for = sanitizeText(req.body.looking_for);
+    if (
+      (about_myself && about_myself.__invalid) ||
+      (looking_for && looking_for.__invalid)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "about_myself and looking_for must be strings" });
+    }
+    if (typeof about_myself === "string" && about_myself.length > 300) {
+      return res
+        .status(400)
+        .json({ error: "about_myself must be at most 300 characters" });
+    }
+    if (typeof looking_for === "string" && looking_for.length > 300) {
+      return res
+        .status(400)
+        .json({ error: "looking_for must be at most 300 characters" });
+    }
 
     // ✅ Validate required fields
     if (
@@ -445,6 +535,8 @@ const addUserFromAdmin = async (req, res) => {
       religion,
       marital_status,
       status: "Pending",
+      ...(about_myself !== undefined && { about_myself }),
+      ...(looking_for !== undefined && { looking_for }),
     });
 
     // ✅ Save Preferences
@@ -458,7 +550,7 @@ const addUserFromAdmin = async (req, res) => {
     // ✅ Link Preferences to User
     newUser.preferences = preferenceDoc._id;
     await newUser.save();
-    
+
     const family = new Family({ user: newUser._id, user_name: name });
     const education = new Education({ user: newUser._id, user_name: name });
     const profession = new Profession({ user: newUser._id, user_name: name });
@@ -470,7 +562,7 @@ const addUserFromAdmin = async (req, res) => {
       profession.save(),
       astrology.save(),
     ]);
-  
+
     newUser.family = family._id;
     newUser.education = education._id;
     newUser.profession = profession._id;
@@ -584,8 +676,8 @@ const getAllSubscriptions = async (req, res) => {
     //   .populate("user", "name email mobile status")
     //   .sort({ createdAt: -1 }); // Sort newest first
     const subscriptions = await Subscription.find({ user: { $ne: null } })
-  .populate("user", "name email mobile status is_deleted")
-  .sort({ createdAt: -1 });
+      .populate("user", "name email mobile status is_deleted")
+      .sort({ createdAt: -1 });
 
     // Map subscriptions to include payment status
     const subscriptionsWithStatus = subscriptions.map((subscription) => {

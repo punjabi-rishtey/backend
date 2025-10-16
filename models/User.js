@@ -1,102 +1,154 @@
-
-
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
-const userSchema = new mongoose.Schema({
-  // Basic Information
-  name: { type: String, required: true },
-  gender: { type: String, required: true },
-  dob: { type: String, required: true },
-  age: {
-    type: Number,
-    get: function () {
-      const today = new Date();
-      const birthDate = new Date(this.dob);
-      let age = today.getFullYear() - birthDate.getFullYear();
-  
-      const hasBirthdayPassedThisYear =
-        today.getMonth() > birthDate.getMonth() ||
-        (today.getMonth() === birthDate.getMonth() && today.getDate() >= birthDate.getDate());
-  
-      if (!hasBirthdayPassedThisYear) {
-        age -= 1;
-      }
-  
-      return Math.floor(age);
-    }
+const userSchema = new mongoose.Schema(
+  {
+    // Basic Information
+    name: { type: String, required: true },
+    gender: { type: String, required: true },
+    dob: { type: String, required: true },
+    age: {
+      type: Number,
+      get: function () {
+        const today = new Date();
+        const birthDate = new Date(this.dob);
+        let age = today.getFullYear() - birthDate.getFullYear();
+
+        const hasBirthdayPassedThisYear =
+          today.getMonth() > birthDate.getMonth() ||
+          (today.getMonth() === birthDate.getMonth() &&
+            today.getDate() >= birthDate.getDate());
+
+        if (!hasBirthdayPassedThisYear) {
+          age -= 1;
+        }
+
+        return Math.floor(age);
+      },
+    },
+    height: String,
+    resetPasswordToken: String,
+    resetPasswordExpires: Date,
+    religion: { type: String, required: true },
+    caste: { type: String },
+    mobile: { type: String, unique: true, required: true },
+    email: { type: String, unique: true, required: true },
+    password: { type: String, required: true },
+
+    // Status Field (from old code)
+    status: {
+      type: String,
+      enum: [
+        "Incomplete",
+        "Pending",
+        "Approved",
+        "Expired",
+        "Canceled",
+        "Unapproved",
+      ],
+      default: "Unapproved",
+    },
+
+    // Personal Details
+    marital_status: { type: String, required: true },
+    mangalik: { type: String, default: "" },
+    language: String,
+    hobbies: [String],
+
+    // New Optional About fields
+    about_myself: { type: String, default: "", maxlength: 300 },
+    looking_for: { type: String, default: "", maxlength: 300 },
+
+    // Birth Details
+    birth_details: {
+      birth_time: String,
+      birth_place: String,
+    },
+
+    // Physical Attributes
+    physical_attributes: {
+      skin_tone: String,
+      body_type: String,
+      physical_disability: { type: Boolean, default: false },
+      disability_reason: String,
+    },
+
+    // Lifestyle
+    lifestyle: {
+      smoke: String,
+      drink: String,
+      veg_nonveg: String, // Keeping original field from old code
+      nri_status: { type: Boolean, default: false },
+      // Ready to move Abroad
+      abroad_ready: { type: Boolean, default: null },
+    },
+
+    // Location
+    location: {
+      address: String, // New field from new code
+      city: String,
+      pincode: String,
+    },
+
+    // Metadata
+    metadata: {
+      register_date: { type: Date, default: Date.now },
+      exp_date: {
+        type: Date,
+        default: () => new Date(+new Date() + 365 * 24 * 60 * 60 * 1000),
+      }, // 1 year expiry
+    },
+
+    profile_pictures: [{ type: String }],
+
+    // References to Related Collections
+    family: { type: mongoose.Schema.Types.ObjectId, ref: "Family" },
+    education: { type: mongoose.Schema.Types.ObjectId, ref: "Education" },
+    profession: { type: mongoose.Schema.Types.ObjectId, ref: "Profession" },
+    astrology: { type: mongoose.Schema.Types.ObjectId, ref: "Astrology" },
+    preferences: { type: mongoose.Schema.Types.ObjectId, ref: "Preference" },
+
+    is_deleted: { type: Boolean, default: false },
   },
-  height: String,
-  resetPasswordToken: String,
-  resetPasswordExpires: Date,
-  religion: { type: String, required: true },
-  caste: { type: String },
-  mobile: { type: String, unique: true, required: true },
-  email: { type: String, unique: true, required: true },
-  password: { type: String, required: true },
-  
-  // Status Field (from old code)
-  status: { 
-    type: String, 
-    enum: ["Incomplete", "Pending", "Approved", "Expired", "Canceled", "Unapproved"], 
-    default: "Unapproved"
-  },
-  
-  // Personal Details
-  marital_status: { type: String, required: true },
-  mangalik: { type: String, default: "" },
-  language: String,
-  hobbies: [String],
-  
-  // Birth Details
-  birth_details: {
-    birth_time: String,
-    birth_place: String,
-  },
-  
-  // Physical Attributes
-  physical_attributes: {
-    skin_tone: String,
-    body_type: String,
-    physical_disability: { type: Boolean, default: false },
-    disability_reason: String,
-  },
-  
-  // Lifestyle
-  lifestyle: {
-    smoke: String,
-    drink: String,
-    veg_nonveg: String, // Keeping original field from old code
-    nri_status: { type: Boolean, default: false },
-  },
-  
-  // Location
-  location: {
-    address: String, // New field from new code
-    city: String,
-    pincode: String,
-  },
-  
-  // Metadata
-  metadata: {
-    register_date: { type: Date, default: Date.now },
-    exp_date: { type: Date, default: () => new Date(+new Date() + 365 * 24 * 60 * 60 * 1000) } // 1 year expiry
-  },
-  
-  profile_pictures: [{ type: String }],
-  
-  // References to Related Collections
-  family: { type: mongoose.Schema.Types.ObjectId, ref: "Family" },
-  education: { type: mongoose.Schema.Types.ObjectId, ref: "Education" },
-  profession: { type: mongoose.Schema.Types.ObjectId, ref: "Profession" },
-  astrology: { type: mongoose.Schema.Types.ObjectId, ref: "Astrology" },
-  preferences: { type: mongoose.Schema.Types.ObjectId, ref: "Preference" },
-  
-  is_deleted: { type: Boolean, default: false }
-}, {
-  toJSON: { getters: true, virtuals: true },
-  toObject: { getters: true, virtuals: true }
-});
+  {
+    toJSON: {
+      getters: true,
+      virtuals: true,
+      transform: (doc, ret) => {
+        // Ensure lifestyle object exists and abroad_ready serializes as null when undefined
+        ret.lifestyle = ret.lifestyle || {};
+        if (ret.lifestyle.abroad_ready === undefined) {
+          ret.lifestyle.abroad_ready = null;
+        }
+        // Ensure new optional fields always present for legacy docs
+        if (ret.about_myself === undefined || ret.about_myself === null) {
+          ret.about_myself = "";
+        }
+        if (ret.looking_for === undefined || ret.looking_for === null) {
+          ret.looking_for = "";
+        }
+        return ret;
+      },
+    },
+    toObject: {
+      getters: true,
+      virtuals: true,
+      transform: (doc, ret) => {
+        ret.lifestyle = ret.lifestyle || {};
+        if (ret.lifestyle.abroad_ready === undefined) {
+          ret.lifestyle.abroad_ready = null;
+        }
+        if (ret.about_myself === undefined || ret.about_myself === null) {
+          ret.about_myself = "";
+        }
+        if (ret.looking_for === undefined || ret.looking_for === null) {
+          ret.looking_for = "";
+        }
+        return ret;
+      },
+    },
+  }
+);
 
 // Hash password before saving
 userSchema.pre("save", async function (next) {
@@ -105,8 +157,6 @@ userSchema.pre("save", async function (next) {
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
-
-
 
 function checkFields(obj) {
   let filledFields = 0;
@@ -124,7 +174,8 @@ function checkFields(obj) {
       for (const key in obj) {
         // For each property, if it's an object, recurse; otherwise count it.
         if (obj[key] !== null && typeof obj[key] === "object") {
-          const { filledFields: subFilled, totalFields: subTotal } = checkFields(obj[key]);
+          const { filledFields: subFilled, totalFields: subTotal } =
+            checkFields(obj[key]);
           filledFields += subFilled;
           totalFields += subTotal;
         } else {
@@ -145,7 +196,6 @@ function checkFields(obj) {
 
   return { filledFields, totalFields };
 }
-
 
 userSchema.methods.calculateProfileCompletion = function () {
   // Build an object with only the fields you want to count.
@@ -179,6 +229,7 @@ userSchema.methods.calculateProfileCompletion = function () {
         drink: this.lifestyle?.drink,
         veg_nonveg: this.lifestyle?.veg_nonveg,
         nri_status: this.lifestyle?.nri_status,
+        abroad_ready: this.lifestyle?.abroad_ready ?? null,
       },
       location: {
         address: this.location?.address,
@@ -186,6 +237,8 @@ userSchema.methods.calculateProfileCompletion = function () {
         pincode: this.location?.pincode,
       },
       profile_pictures: this.profile_pictures, // Array of image URLs
+      about_myself: this.about_myself,
+      looking_for: this.looking_for,
     },
     family: this.family
       ? {
@@ -250,27 +303,8 @@ userSchema.methods.calculateProfileCompletion = function () {
   return totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0;
 };
 
-
-
-
-
 const User = mongoose.model("User", userSchema);
 module.exports = User;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // const mongoose = require("mongoose");
 // const bcrypt = require("bcryptjs");
@@ -299,9 +333,9 @@ module.exports = User;
 //   },
 //   hobbies: [String],
 //   // status: { type: String, default: "Incomplete" },
-//   status: { 
-//     type: String, 
-//     enum: ["Incomplete", "Pending", "Approved", "Expired", "Canceled"], 
+//   status: {
+//     type: String,
+//     enum: ["Incomplete", "Pending", "Approved", "Expired", "Canceled"],
 //     default: "Pending" // New users will now be "Pending" by default
 //   },
 //   mangalik: Boolean,
@@ -337,11 +371,9 @@ module.exports = User;
 //   astrology: { type: mongoose.Schema.Types.ObjectId, ref: "Astrology" },
 //   preferences: { type: mongoose.Schema.Types.ObjectId, ref: "Preference" }, // ✅ Added reference to `Preference`
 
-  
 //   is_deleted: { type: Boolean, default: false }
 
 // });
-
 
 // // ✅ Hash password before saving
 // userSchema.pre("save", async function (next) {
@@ -353,4 +385,3 @@ module.exports = User;
 
 // const User = mongoose.model("User", userSchema);
 // module.exports = User;
-
