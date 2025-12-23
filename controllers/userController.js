@@ -540,16 +540,28 @@ const getUserProfile = async (req, res) => {
     ]);
 
     // ✅ Fix Cloudinary image URL formatting (Remove backend URL issues)
+    const formatImageUrl = (pic) =>
+      pic && pic.startsWith("http") ? pic : pic ? `https://${pic.replace(/^\/\//, "")}` : "";
+
     const profilePicturesUrls = Array.isArray(user.profile_pictures)
-      ? user.profile_pictures.map((pic) =>
-          pic.startsWith("http") ? pic : `https://${pic.replace(/^\/\//, "")}`
-        )
+      ? user.profile_pictures.map(formatImageUrl)
       : [];
+
+    // Get user object (transform will apply fallback for profile_picture)
+    const userObj = user.toObject();
+
+    // Format the profile_picture URL
+    const profilePictureUrl = userObj.profile_picture
+      ? formatImageUrl(userObj.profile_picture)
+      : profilePicturesUrls.length > 0
+        ? profilePicturesUrls[0]
+        : "";
 
     // ✅ Construct user profile response
     const userProfile = {
-      ...user.toObject(), // Convert Mongoose document to plain object
+      ...userObj, // Convert Mongoose document to plain object
       profile_pictures: profilePicturesUrls, // Corrected profile picture URLs
+      profile_picture: profilePictureUrl, // Formatted profile picture URL with fallback
       family_details: family, // Attach family details
       education_details: education, // Attach education details
       profession_details: profession, // Attach profession details
@@ -835,6 +847,53 @@ const deleteProfilePicture = async (req, res) => {
   }
 };
 
+const setProfilePicture = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { imageUrl } = req.body;
+
+    // Ensure user is authenticated and can only set their own profile picture
+    if (req.user.id !== userId) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to update this profile" });
+    }
+
+    // Find user in database
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // If imageUrl is empty or null, clear the profile_picture (will fallback to first in array)
+    if (!imageUrl) {
+      user.profile_picture = "";
+      await user.save();
+      return res.json({
+        message: "Profile picture cleared, will use first uploaded picture",
+        profile_picture: user.profile_pictures.length > 0 ? user.profile_pictures[0] : "",
+      });
+    }
+
+    // Validate that the image exists in user's profile_pictures
+    if (!user.profile_pictures.includes(imageUrl)) {
+      return res
+        .status(400)
+        .json({ message: "Image not found in your uploaded pictures" });
+    }
+
+    // Set the profile picture
+    user.profile_picture = imageUrl;
+    await user.save();
+
+    res.json({
+      message: "Profile picture updated successfully",
+      profile_picture: user.profile_picture,
+    });
+  } catch (error) {
+    console.error("Error setting profile picture:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 const logoutUser = async (req, res) => {
   try {
     // ✅ On the client side, the token should be removed from local storage/cookies
@@ -975,7 +1034,7 @@ const getAllBasicUserDetails = async (req, res) => {
       .populate("preferences")
       .populate("profession", "occupation designation")
       .select(
-        "name dob gender height religion marital_status caste language mangalik profile_pictures preferences profession metadata.register_date status"
+        "name dob gender height religion marital_status caste language mangalik profile_pictures profile_picture preferences profession metadata.register_date status"
       ) // Added metadata.register_date
       .lean();
 
@@ -995,7 +1054,7 @@ const getAllBasicUserDetails = async (req, res) => {
       manglik: user.mangalik, // Note: Schema uses 'mangalik', but API uses 'manglik'
       preferences: user.preferences || { _id: user._id } || {},
       profile_picture:
-        user.profile_pictures?.length > 0 ? user.profile_pictures[0] : null,
+        user.profile_picture || (user.profile_pictures?.length > 0 ? user.profile_pictures[0] : null),
       metadata: {
         register_date: user.metadata?.register_date || null, // Include register_date
       },
@@ -1214,6 +1273,7 @@ module.exports = {
   updateUserProfile,
   uploadProfilePictures,
   deleteProfilePicture,
+  setProfilePicture,
   logoutUser,
   forgotPassword,
   resetPassword,

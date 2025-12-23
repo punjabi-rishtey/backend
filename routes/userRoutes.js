@@ -7,6 +7,7 @@ const {
   updateUserProfile,
   uploadProfilePictures,
   deleteProfilePicture,
+  setProfilePicture,
   logoutUser,
   forgotPassword,
   submitInquiry,
@@ -70,6 +71,8 @@ router.post(
 );
 
 router.delete("/:id/delete-picture", protect, deleteProfilePicture);
+
+router.put("/:id/set-profile-picture", protect, setProfilePicture);
 
 router.post("/logout", protect, logoutUser);
 
