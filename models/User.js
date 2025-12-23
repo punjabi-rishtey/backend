@@ -104,6 +104,9 @@ const userSchema = new mongoose.Schema(
 
     profile_pictures: [{ type: String }],
 
+    // Selected profile picture (falls back to first in profile_pictures if not set)
+    profile_picture: { type: String, default: "" },
+
     // References to Related Collections
     family: { type: mongoose.Schema.Types.ObjectId, ref: "Family" },
     education: { type: mongoose.Schema.Types.ObjectId, ref: "Education" },
@@ -130,6 +133,10 @@ const userSchema = new mongoose.Schema(
         if (ret.looking_for === undefined || ret.looking_for === null) {
           ret.looking_for = "";
         }
+        // Fallback profile_picture to first in profile_pictures if not set
+        if (!ret.profile_picture && Array.isArray(ret.profile_pictures) && ret.profile_pictures.length > 0) {
+          ret.profile_picture = ret.profile_pictures[0];
+        }
         return ret;
       },
     },
@@ -146,6 +153,10 @@ const userSchema = new mongoose.Schema(
         }
         if (ret.looking_for === undefined || ret.looking_for === null) {
           ret.looking_for = "";
+        }
+        // Fallback profile_picture to first in profile_pictures if not set
+        if (!ret.profile_picture && Array.isArray(ret.profile_pictures) && ret.profile_pictures.length > 0) {
+          ret.profile_picture = ret.profile_pictures[0];
         }
         return ret;
       },
