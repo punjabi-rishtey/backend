@@ -96,6 +96,7 @@ const registerUser = async (req, res) => {
       preferences,
       about_myself,
       looking_for,
+      secondary_contact,
     } = req.body;
 
     // Validate required fields
@@ -175,10 +176,11 @@ const registerUser = async (req, res) => {
       throw new Error(`${fieldName} must be a string`);
     };
 
-    let safeAboutMyself, safeLookingFor;
+    let safeAboutMyself, safeLookingFor, safeSecondaryContact;
     try {
       safeAboutMyself = sanitizeOptionalText(about_myself, "about_myself");
       safeLookingFor = sanitizeOptionalText(looking_for, "looking_for");
+      safeSecondaryContact = sanitizeOptionalText(secondary_contact, "secondary_contact");
     } catch (e) {
       return res.status(400).json({ message: e.message });
     }
@@ -208,6 +210,7 @@ const registerUser = async (req, res) => {
       profile_pictures: profilePictures,
       ...(safeAboutMyself !== undefined && { about_myself: safeAboutMyself }),
       ...(safeLookingFor !== undefined && { looking_for: safeLookingFor }),
+      ...(safeSecondaryContact !== undefined && { secondary_contact: safeSecondaryContact }),
     });
 
     // Save the user first to get the user._id
@@ -587,6 +590,7 @@ const updateUserProfile = async (req, res) => {
       "caste", // <-- newly added field
       "about_myself",
       "looking_for",
+      "secondary_contact",
     ];
 
     // Filter only allowed fields
@@ -688,6 +692,12 @@ const updateUserProfile = async (req, res) => {
           .json({ error: "looking_for must be at most 300 characters" });
       }
       updates.looking_for = v;
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, "secondary_contact")) {
+      const v = sanitizeOptionalTextUpdate(updates.secondary_contact);
+      if (v && v.__invalid)
+        return res.status(400).json({ error: "secondary_contact must be a string" });
+      updates.secondary_contact = v;
     }
 
     // Prevent duplicate mobile number issue
