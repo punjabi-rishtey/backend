@@ -59,6 +59,9 @@ const userSchema = new mongoose.Schema(
     about_myself: { type: String, default: "", maxlength: 300 },
     looking_for: { type: String, default: "", maxlength: 300 },
 
+    // Secondary contact (optional)
+    secondary_contact: { type: String, default: "" },
+
     // Birth Details
     birth_details: {
       birth_time: String,
