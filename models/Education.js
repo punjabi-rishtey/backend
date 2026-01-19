@@ -30,6 +30,8 @@ const educationSchema = new mongoose.Schema({
     city: { type: String, default: "" }, // College City
     passout_year: { type: String, default: "" }, // Year of Passing
   },
+
+  additional_info: { type: String, default: "" }, // Additional Educational Information
 });
 
 const Education = mongoose.model("Education", educationSchema);
