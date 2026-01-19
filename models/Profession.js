@@ -27,6 +27,7 @@ const professionSchema = new mongoose.Schema({
     address: { type: String, default: "" },
     city: { type: String, default: "" },
   },
+  additional_info: { type: String, default: "" }, // Additional Professional Information
 });
 
 
