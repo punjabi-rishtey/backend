@@ -86,23 +86,57 @@ startExpiryCheckCron();
 const app = express();
 
 // ✅ Move CORS Middleware Before Other Middleware
-const allowedOrigins = [
+const exactAllowedOrigins = new Set([
   "https://admin-frontend-punjabi-rishteys-projects.vercel.app",
   "https://admin-frontend-git-main-punjabi-rishteys-projects.vercel.app",
   "https://admin-frontend-two-vert.vercel.app",
+  "https://admin-frontend-revised.vercel.app",
+  "https://user-frontend-seven-virid.vercel.app",
+  "https://www.punjabi-rishtey.com",
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:8080",
-  "https://user-frontend-seven-virid.vercel.app",
-  "https://www.punjabi-rishtey.com/admin",
-  "https://www.punjabi-rishtey.com",
-  "https://admin-frontend-revised.vercel.app",
+]);
+
+const allowedPreviewHostnameRules = [
+  {
+    prefix: "user-frontend-",
+    suffix: "-punjabi-rishteys-projects.vercel.app",
+  },
+  {
+    prefix: "admin-frontend-revised-",
+    suffix: "-punjabi-rishteys-projects.vercel.app",
+  },
 ];
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) {
+    return true;
+  }
+
+  try {
+    const parsedOrigin = new URL(origin);
+    const normalizedOrigin = `${parsedOrigin.protocol}//${parsedOrigin.host}`;
+
+    if (exactAllowedOrigins.has(normalizedOrigin)) {
+      return true;
+    }
+
+    return allowedPreviewHostnameRules.some(
+      ({ prefix, suffix }) =>
+        parsedOrigin.hostname.startsWith(prefix) &&
+        parsedOrigin.hostname.endsWith(suffix)
+    );
+  } catch (error) {
+    console.error("❌ Invalid CORS origin:", origin, error.message);
+    return false;
+  }
+};
 
 const corsOptions = {
   origin: (origin, callback) => {
     // console.log(`🌐 Incoming Request Origin: ${origin}`);
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
       callback(new Error("❌ Not allowed by CORS"));
