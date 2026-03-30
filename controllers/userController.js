@@ -1034,7 +1034,7 @@ const getAllBasicUserDetails = async (req, res) => {
       .populate("preferences")
       .populate("profession", "occupation designation")
       .select(
-        "name dob gender height religion marital_status caste language mangalik profile_pictures profile_picture preferences profession metadata.register_date status"
+        "name dob gender height religion marital_status caste language mangalik lifestyle.nri_status location.city profile_pictures profile_picture preferences profession metadata.register_date status"
       ) // Added metadata.register_date
       .lean();
 
@@ -1052,6 +1052,8 @@ const getAllBasicUserDetails = async (req, res) => {
       occupation: user.profession?.occupation || null,
       language: user.language,
       manglik: user.mangalik, // Note: Schema uses 'mangalik', but API uses 'manglik'
+      nri_status: user.lifestyle?.nri_status ?? false,
+      city: user.location?.city || "",
       preferences: user.preferences || { _id: user._id } || {},
       profile_picture:
         user.profile_picture || (user.profile_pictures?.length > 0 ? user.profile_pictures[0] : null),
