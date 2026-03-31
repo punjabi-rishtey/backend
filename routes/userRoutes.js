@@ -12,6 +12,7 @@ const {
   forgotPassword,
   submitInquiry,
   resetPassword,
+  changePassword,
   getAllBasicUserDetails,
   getProfileCompletion,
   createSubscription,
@@ -58,6 +59,8 @@ router.get("/profile-completion", protect, getProfileCompletion);
 router.post("/subscribe", protect, upload.single("image"), createSubscription);
 
 router.get("/subscription/:id", getUserSubscription);
+
+router.put("/change-password", protect, changePassword);
 
 router.get("/:id", protect, getUserProfile);
 
