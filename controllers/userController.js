@@ -16,46 +16,37 @@ const Inquiry = require("../models/inquiryModel");
 const Subscription = require("../models/Subscription");
 const Coupon = require("../models/Coupon");
 const Membership = require("../models/Membership");
+const {
+  ProfilePhotoError,
+  uploadProfilePhotoFiles,
+  uploadProfilePhotosForUser,
+  deleteProfilePhotoForUser,
+  setPrimaryProfilePhotoForUser,
+  deleteAllProfilePhotosForUser,
+  destroyProfilePhotoAssets,
+} = require("../services/profilePhotoService");
+
+const sendProfilePhotoError = (res, error, fallbackMessage) => {
+  const statusCode = error instanceof ProfilePhotoError ? error.statusCode : 500;
+  const payload =
+    statusCode >= 500
+      ? { error: fallbackMessage, details: error.message }
+      : { message: error.message };
+
+  return res.status(statusCode).json(payload);
+};
 
 // Delete current user's account and associated data
 const deleteAccount = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select("+profile_picture_assets");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Remove profile pictures from Cloudinary if any
-    if (
-      Array.isArray(user.profile_pictures) &&
-      user.profile_pictures.length > 0
-    ) {
-      for (const imageUrl of user.profile_pictures) {
-        try {
-          // Extract Cloudinary public_id from URL
-          // Example: https://res.cloudinary.com/<cloud>/image/upload/v123/profile_pictures/abc.jpg
-          const urlParts = imageUrl.split("/");
-          const uploadIdx = urlParts.findIndex((p) => p === "upload");
-          let publicId = null;
-          if (uploadIdx !== -1 && uploadIdx + 1 < urlParts.length) {
-            publicId = urlParts
-              .slice(uploadIdx + 1) // v123/profile_pictures/abc.jpg
-              .join("/")
-              .replace(/^v\d+\//, "") // remove version segment
-              .replace(/\.[^/.]+$/, ""); // strip extension
-          }
-
-          if (publicId) {
-            await cloudinary.uploader.destroy(publicId);
-          }
-        } catch (err) {
-          // Continue deleting other assets even if one fails
-          console.error("Error deleting Cloudinary asset:", err.message);
-        }
-      }
-    }
+    await deleteAllProfilePhotosForUser(user, { ignoreErrors: true });
 
     // Delete related documents
     await Promise.all([
@@ -83,6 +74,9 @@ const deleteAccount = async (req, res) => {
 };
 
 const registerUser = async (req, res) => {
+  let uploadedProfileAssets = [];
+  let userSaved = false;
+
   try {
     const {
       name,
@@ -136,25 +130,11 @@ const registerUser = async (req, res) => {
     }
 
     // Handle profile pictures upload
-    let profilePictures = [];
     if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        console.log("📤 Uploading file:", file.originalname);
-        try {
-          const result = await cloudinary.uploader.upload(file.path, {
-            folder: "profile_pictures",
-            transformation: [{ width: 500, height: 500, crop: "limit" }],
-          });
-          console.log("✅ Cloudinary Upload Success:", result.secure_url);
-          profilePictures.push(result.secure_url);
-        } catch (uploadError) {
-          console.error("❌ Cloudinary Upload Error:", uploadError);
-          return res.status(500).json({
-            error: "Cloudinary upload failed!",
-            details: uploadError.message,
-          });
-        }
-      }
+      uploadedProfileAssets = await uploadProfilePhotoFiles(
+        req.files,
+        "registration"
+      );
     }
 
     // Parse preferences if provided
@@ -207,7 +187,9 @@ const registerUser = async (req, res) => {
       religion,
       marital_status,
       status: "Unapproved",
-      profile_pictures: profilePictures,
+      profile_pictures: uploadedProfileAssets.map((asset) => asset.url),
+      profile_picture_assets: uploadedProfileAssets,
+      profile_picture: uploadedProfileAssets[0]?.url || "",
       ...(safeAboutMyself !== undefined && { about_myself: safeAboutMyself }),
       ...(safeLookingFor !== undefined && { looking_for: safeLookingFor }),
       ...(safeSecondaryContact !== undefined && { secondary_contact: safeSecondaryContact }),
@@ -215,6 +197,7 @@ const registerUser = async (req, res) => {
 
     // Save the user first to get the user._id
     await user.save();
+    userSaved = true;
 
     // Create related documents
     const family = new Family({ user: user._id, user_name: name });
@@ -250,6 +233,11 @@ const registerUser = async (req, res) => {
 
     res.status(201).json({ message: "User Registered Successfully", user });
   } catch (error) {
+    if (!userSaved && uploadedProfileAssets.length > 0) {
+      await destroyProfilePhotoAssets(uploadedProfileAssets, {
+        ignoreErrors: true,
+      });
+    }
     console.error("❌ Error registering user:", error);
     res.status(500).json({ error: error.message });
   }
@@ -745,64 +733,28 @@ const updateUserProfile = async (req, res) => {
 
 const uploadProfilePictures = async (req, res) => {
   try {
-    console.log("🔥 Incoming request body:", req.body);
-    console.log("📸 Incoming files:", req.files);
-
-    if (!req.files || req.files.length === 0) {
-      console.error("❌ No files uploaded!");
-      return res.status(400).json({ error: "Image file is required!" });
+    const userId = req.params.id;
+    if (req.user.id !== userId) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to upload images for this profile" });
     }
 
-    const userId = req.params.id;
-    console.log("👤 User ID:", userId);
-
-    // ✅ Find user
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select("+profile_picture_assets");
     if (!user) {
-      console.error("❌ User Not Found with ID:", userId);
       return res.status(404).json({ message: "User Not Found" });
     }
 
-    console.log("✅ User found:", user.name || user.email);
-
-    // ✅ Upload each file to Cloudinary
-    const uploadedImages = [];
-    for (const file of req.files) {
-      console.log("📤 Uploading file:", file.originalname);
-      try {
-        const result = await cloudinary.uploader.upload(file.path, {
-          folder: "profile_pictures",
-          transformation: [{ width: 500, height: 500, crop: "limit" }],
-        });
-        console.log("✅ Cloudinary Upload Success:", result.secure_url);
-        uploadedImages.push(result.secure_url);
-      } catch (uploadError) {
-        console.error("❌ Cloudinary Upload Error:", uploadError);
-        return res.status(500).json({
-          error: "Cloudinary upload failed!",
-          details: uploadError.message,
-        });
-      }
-    }
-
-    console.log("🖼 Uploaded Images:", uploadedImages);
-
-    // ✅ Append new images to existing images (max 10)
-    user.profile_pictures = [
-      ...(user.profile_pictures || []),
-      ...uploadedImages,
-    ].slice(-10);
-    await user.save();
-
-    console.log("✅ Profile pictures updated for user:", userId);
+    const result = await uploadProfilePhotosForUser(user, req.files, "user");
 
     res.json({
       message: "Profile pictures uploaded successfully",
-      profile_pictures: user.profile_pictures,
+      profile_pictures: result.profile_pictures,
+      profile_picture: result.profile_picture,
     });
   } catch (error) {
     console.error("❌ Error uploading profile pictures:", error);
-    res.status(500).json({ error: "Server error!", details: error.message });
+    sendProfilePhotoError(res, error, "Server error!");
   }
 };
 
@@ -819,31 +771,19 @@ const deleteProfilePicture = async (req, res) => {
     }
 
     // ✅ Find user in database
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select("+profile_picture_assets");
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // ✅ Ensure image exists in user's profile
-    if (!user.profile_pictures.includes(imagePath)) {
-      return res.status(400).json({ message: "Image not found in profile" });
-    }
-
-    // ✅ Remove image from MongoDB
-    user.profile_pictures = user.profile_pictures.filter(
-      (pic) => pic !== imagePath
-    );
-    await user.save();
-
-    // ✅ Remove image from Cloudinary
-    const publicId = imagePath.split("/").pop().split(".")[0]; // Extract public ID
-    await cloudinary.uploader.destroy(`profile_pictures/${publicId}`);
+    const result = await deleteProfilePhotoForUser(user, imagePath);
 
     res.json({
       message: "Profile picture deleted successfully",
-      profile_pictures: user.profile_pictures,
+      profile_pictures: result.profile_pictures,
+      profile_picture: result.profile_picture,
     });
   } catch (error) {
     console.error("Error deleting profile picture:", error);
-    res.status(500).json({ error: error.message });
+    sendProfilePhotoError(res, error, "Server error deleting profile picture");
   }
 };
 
@@ -860,37 +800,19 @@ const setProfilePicture = async (req, res) => {
     }
 
     // Find user in database
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select("+profile_picture_assets");
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // If imageUrl is empty or null, clear the profile_picture (will fallback to first in array)
-    if (!imageUrl) {
-      user.profile_picture = "";
-      await user.save();
-      return res.json({
-        message: "Profile picture cleared, will use first uploaded picture",
-        profile_picture: user.profile_pictures.length > 0 ? user.profile_pictures[0] : "",
-      });
-    }
-
-    // Validate that the image exists in user's profile_pictures
-    if (!user.profile_pictures.includes(imageUrl)) {
-      return res
-        .status(400)
-        .json({ message: "Image not found in your uploaded pictures" });
-    }
-
-    // Set the profile picture
-    user.profile_picture = imageUrl;
-    await user.save();
+    const result = await setPrimaryProfilePhotoForUser(user, imageUrl);
 
     res.json({
       message: "Profile picture updated successfully",
-      profile_picture: user.profile_picture,
+      profile_picture: result.profile_picture,
+      profile_pictures: result.profile_pictures,
     });
   } catch (error) {
     console.error("Error setting profile picture:", error);
-    res.status(500).json({ error: error.message });
+    sendProfilePhotoError(res, error, "Server error setting profile picture");
   }
 };
 

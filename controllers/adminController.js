@@ -13,6 +13,22 @@ const Preference = require("../models/Preference");
 const Subscription = require("../models/Subscription");
 const cloudinary = require("../config/cloudinary");
 const QrCode = require("../models/QRCode");
+const {
+  ProfilePhotoError,
+  uploadProfilePhotosForUser,
+  deleteProfilePhotoForUser,
+  deleteAllProfilePhotosForUser,
+} = require("../services/profilePhotoService");
+
+const sendProfilePhotoError = (res, error, fallbackMessage) => {
+  const statusCode = error instanceof ProfilePhotoError ? error.statusCode : 500;
+  const payload =
+    statusCode >= 500
+      ? { error: fallbackMessage, details: error.message }
+      : { message: error.message };
+
+  return res.status(statusCode).json(payload);
+};
 
 require("dotenv").config();
 
@@ -319,6 +335,10 @@ const editUser = async (req, res) => {
   try {
     const { id } = req.params; // Extracting user ID from request params
     const updates = req.body; // Extracting the updated user details from request body
+
+    delete updates.profile_pictures;
+    delete updates.profile_picture;
+    delete updates.profile_picture_assets;
 
     // Handle new optional text fields sanitization
     const sanitizeText = (v) => {
@@ -753,14 +773,15 @@ const deleteUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid user ID format" });
     }
 
-    // Find and permanently delete user
-    const user = await User.findByIdAndDelete(userId).select(
-      "name email status"
-    );
-
+    const user = await User.findById(userId)
+      .select("name email status profile_pictures profile_picture")
+      .select("+profile_picture_assets");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    await deleteAllProfilePhotosForUser(user, { ignoreErrors: true });
+    await User.deleteOne({ _id: userId });
 
     return res.status(200).json({
       message: "User permanently deleted successfully",
@@ -777,6 +798,44 @@ const deleteUser = async (req, res) => {
       message: "Internal server error",
       error: error.message,
     });
+  }
+};
+
+const uploadUserProfilePictures = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("+profile_picture_assets");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const result = await uploadProfilePhotosForUser(user, req.files, "admin");
+    return res.json({
+      message: "Profile pictures uploaded successfully",
+      profile_pictures: result.profile_pictures,
+      profile_picture: result.profile_picture,
+    });
+  } catch (error) {
+    console.error("Error uploading profile pictures by admin:", error);
+    return sendProfilePhotoError(res, error, "Server error uploading profile pictures");
+  }
+};
+
+const deleteUserProfilePicture = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select("+profile_picture_assets");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const result = await deleteProfilePhotoForUser(user, req.body.imagePath);
+    return res.json({
+      message: "Profile picture deleted successfully",
+      profile_pictures: result.profile_pictures,
+      profile_picture: result.profile_picture,
+    });
+  } catch (error) {
+    console.error("Error deleting profile picture by admin:", error);
+    return sendProfilePhotoError(res, error, "Server error deleting profile picture");
   }
 };
 
@@ -872,4 +931,6 @@ module.exports = {
   getAllSubscriptions,
   getUserStatus,
   deleteUser,
+  uploadUserProfilePictures,
+  deleteUserProfilePicture,
 };

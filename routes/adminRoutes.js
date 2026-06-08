@@ -21,6 +21,8 @@ const {
   changeUserPasswordByAdmin,
   uploadQR,
   getQR,
+  uploadUserProfilePictures,
+  deleteUserProfilePicture,
 } = require("../controllers/adminController");
 const {
   updateAstrologyDetails,
@@ -35,10 +37,11 @@ const { updateFamilyDetails } = require("../controllers/familyController");
 const { updateUserProfile } = require("../controllers/userController"); // Adjust the path as needed
 
 const adminAuth = require("../middleware/adminAuthMiddleware"); // ✅ Import middleware
+const profilePhotoUpload = require("../middleware/profilePhotoUploadMiddleware");
 
 const router = express.Router();
 
-router.post("/register", registerAdmin);
+router.post("/register", adminAuth, registerAdmin);
 
 router.post("/login", loginAdmin);
 
@@ -46,12 +49,24 @@ router.get("/dashboard", adminAuth, getAdminDashboard);
 
 router.get("/users/:status", adminAuth, getUsersByStatus);
 
-// router.put("/users/approve/:id", adminAuth, approveUser);
-router.put("/users/approve/:id", approveUser);
+router.put("/users/approve/:id", adminAuth, approveUser);
 
 router.put("/users/block/:id", adminAuth, blockUser);
 
 router.put("/users/edit/:id", adminAuth, editUser);
+
+router.post(
+  "/users/:id/profile-pictures",
+  adminAuth,
+  profilePhotoUpload.array("profile_pictures", 10),
+  uploadUserProfilePictures
+);
+
+router.delete(
+  "/users/:id/profile-pictures",
+  adminAuth,
+  deleteUserProfilePicture
+);
 
 router.post("/users/add", adminAuth, addUserFromAdmin);
 
@@ -75,21 +90,21 @@ router.put("/families/:id", adminAuth, updateFamilyDetails);
 router.put("/user/:id/profile", adminAuth, updateUserProfile);
 
 // Route to get user status by ID
-router.get("/userstatus/:id/status", getUserStatus);
+router.get("/userstatus/:id/status", adminAuth, getUserStatus);
 
 // Route to delete user by ID
-router.delete("/deleteuser/:id", deleteUser);
+router.delete("/deleteuser/:id", adminAuth, deleteUser);
 
 // Route to change a user's password by admin
 // /api/admin/auth/change-password/:userId
-router.put("/change-password/:userId", changeUserPasswordByAdmin);
+router.put("/change-password/:userId", adminAuth, changeUserPasswordByAdmin);
 
 // QR
 // Multer config (in-memory)
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-router.post("/qr/upload", upload.single("image"), uploadQR);
+router.post("/qr/upload", adminAuth, upload.single("image"), uploadQR);
 router.get("/qr", getQR);
 
 module.exports = router;

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const upload = require("../middleware/cloudinaryMiddleware");
 const { addTestimonial, getAllTestimonials, editTestimonial, deleteTestimonial } = require("../controllers/testimonialController");
+const adminAuth = require("../middleware/adminAuthMiddleware");
 
 /**
  * @swagger
@@ -41,7 +42,7 @@ const { addTestimonial, getAllTestimonials, editTestimonial, deleteTestimonial }
  *       400:
  *         description: Bad request
  */
-router.post("/add", upload.single("image"), addTestimonial);
+router.post("/add", adminAuth, upload.single("image"), addTestimonial);
 
 /**
  * @swagger
@@ -110,7 +111,7 @@ router.get("/all", getAllTestimonials);
  *       404:
  *         description: Testimonial not found
  */
-router.put("/edit/:id", upload.single("image"), editTestimonial);
+router.put("/edit/:id", adminAuth, upload.single("image"), editTestimonial);
 
 /**
  * @swagger
@@ -131,6 +132,6 @@ router.put("/edit/:id", upload.single("image"), editTestimonial);
  *       404:
  *         description: Testimonial not found
  */
-router.delete("/:id", deleteTestimonial);
+router.delete("/:id", adminAuth, deleteTestimonial);
 
 module.exports = router;

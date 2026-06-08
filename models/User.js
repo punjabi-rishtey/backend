@@ -104,6 +104,23 @@ const userSchema = new mongoose.Schema(
 
     profile_pictures: [{ type: String }],
 
+    profile_picture_assets: {
+      type: [
+        {
+          url: { type: String, required: true },
+          public_id: { type: String },
+          uploaded_at: { type: Date },
+          source: {
+            type: String,
+            enum: ["user", "admin", "registration", "legacy"],
+            default: "legacy",
+          },
+        },
+      ],
+      select: false,
+      default: [],
+    },
+
     // Selected profile picture (falls back to first in profile_pictures if not set)
     profile_picture: { type: String, default: "" },
 
@@ -137,6 +154,7 @@ const userSchema = new mongoose.Schema(
         if (!ret.profile_picture && Array.isArray(ret.profile_pictures) && ret.profile_pictures.length > 0) {
           ret.profile_picture = ret.profile_pictures[0];
         }
+        delete ret.profile_picture_assets;
         return ret;
       },
     },
@@ -158,6 +176,7 @@ const userSchema = new mongoose.Schema(
         if (!ret.profile_picture && Array.isArray(ret.profile_pictures) && ret.profile_pictures.length > 0) {
           ret.profile_picture = ret.profile_pictures[0];
         }
+        delete ret.profile_picture_assets;
         return ret;
       },
     },
