@@ -60,10 +60,10 @@
 // swaggerDocs(app);
 
 const express = require("express");
-const dotenv = require("dotenv");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const swaggerDocs = require("./swagger");
+const loadEnv = require("./config/loadEnv");
 
 // Import Routes
 const userRoutes = require("./routes/userRoutes");
@@ -79,7 +79,7 @@ const couponRoutes = require("./routes/couponRoutes");
 const startExpiryCheckCron = require("./utils/checkExpiryCron");
 const messageRoutes = require("./routes/messageRoutes");
 
-dotenv.config();
+loadEnv();
 connectDB();
 startExpiryCheckCron();
 

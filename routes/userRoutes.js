@@ -22,6 +22,7 @@ const {
 
 const protect = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
+const profilePhotoUpload = require("../middleware/profilePhotoUploadMiddleware");
 const checkProfileCompletion = require("../middleware/checkProfileCompletion");
 
 const router = express.Router();
@@ -30,7 +31,7 @@ const router = express.Router();
 router.get("/all-basic", getAllBasicUserDetails);
 
 // Updated register route to handle file uploads
-router.post("/register", upload.array("profile_pictures", 10), registerUser);
+router.post("/register", profilePhotoUpload.array("profile_pictures", 10), registerUser);
 
 router.post("/login", loginUser);
 
@@ -69,7 +70,7 @@ router.put("/:id", protect, updateUserProfile);
 router.post(
   "/:id/upload",
   protect,
-  upload.array("profile_pictures", 10),
+  profilePhotoUpload.array("profile_pictures", 10),
   uploadProfilePictures
 );
 
