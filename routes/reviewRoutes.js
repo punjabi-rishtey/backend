@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const upload = require("../middleware/cloudinaryMiddleware");
 const { addReview, getAllReviews, editReview, deleteReview } = require("../controllers/reviewController");
+const adminAuth = require("../middleware/adminAuthMiddleware");
 
 /**
  * @swagger
@@ -41,7 +42,7 @@ const { addReview, getAllReviews, editReview, deleteReview } = require("../contr
  *       400:
  *         description: Bad request
  */
-router.post("/add", addReview);
+router.post("/add", adminAuth, addReview);
 
 /**
  * @swagger
@@ -110,7 +111,7 @@ router.get("/all", getAllReviews);
  *       404:
  *         description: Review not found
  */
-router.put("/edit/:id", editReview);
+router.put("/edit/:id", adminAuth, editReview);
 
 /**
  * @swagger
@@ -131,6 +132,6 @@ router.put("/edit/:id", editReview);
  *       404:
  *         description: Review not found
  */
-router.delete("/:id", deleteReview);
+router.delete("/:id", adminAuth, deleteReview);
 
 module.exports = router;

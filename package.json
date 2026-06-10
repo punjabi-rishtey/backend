@@ -6,7 +6,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "start:cron": "node utils/checkExpiryCron.js"
+    "start:cron": "node utils/checkExpiryCron.js",
+    "start:qa": "ENV_FILE=.env.qa node index.js",
+    "dev:qa": "ENV_FILE=.env.qa nodemon index.js"
   },
   "keywords": [],
   "author": "",
