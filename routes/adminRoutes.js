@@ -14,15 +14,20 @@ const {
   getUserStatusCounts,
   getAllUsers,
   getAllInquiries,
+  replyToInquiry,
+  closeInquiry,
   getUserById,
   getAllSubscriptions,
+  approveSubscriptionPayment,
   getUserStatus,
   deleteUser,
+  restoreUser,
   changeUserPasswordByAdmin,
   uploadQR,
   getQR,
   uploadUserProfilePictures,
   deleteUserProfilePicture,
+  moveUserToPending,
 } = require("../controllers/adminController");
 const {
   updateAstrologyDetails,
@@ -51,6 +56,8 @@ router.get("/users/:status", adminAuth, getUsersByStatus);
 
 router.put("/users/approve/:id", adminAuth, approveUser);
 
+router.put("/users/:id/pending", adminAuth, moveUserToPending);
+
 router.put("/users/block/:id", adminAuth, blockUser);
 
 router.put("/users/edit/:id", adminAuth, editUser);
@@ -68,7 +75,12 @@ router.delete(
   deleteUserProfilePicture
 );
 
-router.post("/users/add", adminAuth, addUserFromAdmin);
+router.post(
+  "/users/add",
+  adminAuth,
+  profilePhotoUpload.array("profile_pictures", 10),
+  addUserFromAdmin
+);
 
 router.get("/dashboard/registrations", adminAuth, getUserRegistrationsPerMonth);
 
@@ -77,10 +89,17 @@ router.get("/dashboard/status-counts", adminAuth, getUserStatusCounts);
 router.get("/users", adminAuth, getAllUsers);
 
 router.get("/inquiries/all", adminAuth, getAllInquiries);
+router.post("/inquiries/:id/reply", adminAuth, replyToInquiry);
+router.put("/inquiries/:id/close", adminAuth, closeInquiry);
 
 router.get("/user/:id", adminAuth, getUserById);
 
 router.get("/subscriptions", adminAuth, getAllSubscriptions);
+router.put(
+  "/subscriptions/:subscriptionId/approve",
+  adminAuth,
+  approveSubscriptionPayment
+);
 
 //Edit page updatea apis:
 router.put("/astrologies/:id", adminAuth, updateAstrologyDetails);
@@ -94,6 +113,7 @@ router.get("/userstatus/:id/status", adminAuth, getUserStatus);
 
 // Route to delete user by ID
 router.delete("/deleteuser/:id", adminAuth, deleteUser);
+router.put("/restoreuser/:id", adminAuth, restoreUser);
 
 // Route to change a user's password by admin
 // /api/admin/auth/change-password/:userId

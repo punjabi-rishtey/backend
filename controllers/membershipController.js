@@ -1,6 +1,36 @@
 // ✅ Membership Controller
 const Membership = require("../models/Membership");
 
+const normalizeMembershipInput = (body) => {
+  const name = String(body.name || "").trim();
+  const price = Number(body.price);
+  const duration = Number(body.duration);
+  const premiumProfilesView =
+    body.premiumProfilesView === undefined ||
+    String(body.premiumProfilesView).trim() === ""
+      ? "Unlimited"
+      : String(body.premiumProfilesView).trim();
+
+  if (!name) {
+    throw new Error("Plan name is required.");
+  }
+
+  if (!Number.isFinite(price) || price < 0) {
+    throw new Error("Plan price must be 0 or more.");
+  }
+
+  if (!Number.isInteger(duration) || duration <= 0) {
+    throw new Error("Plan duration must be a whole number of months.");
+  }
+
+  return {
+    name,
+    price,
+    duration,
+    premiumProfilesView,
+  };
+};
+
 const getAllMemberships = async (req, res) => {
   try {
     const memberships = await Membership.find().sort({ price: 1 });
@@ -10,11 +40,12 @@ const getAllMemberships = async (req, res) => {
       price: membership.price,
       currency: "₹",
       duration: membership.duration,
+      premiumProfilesView: membership.premiumProfilesView,
       mostPopular: membership.name === "Gold",
       features: [
         {
           feature: `${membership.premiumProfilesView} Premium Profiles view`,
-          available: membership.premiumProfilesView > 0,
+          available: String(membership.premiumProfilesView) !== "0",
         },
         { feature: "Free user profile can view", available: true },
       ],
@@ -28,42 +59,41 @@ const getAllMemberships = async (req, res) => {
 
 const addMembership = async (req, res) => {
   try {
-    console.log("🔥 Incoming request body:", req.body); // Debugging Log
-
-    const { name, price, premiumProfilesView, viewContactDetails, duration } =
-      req.body;
-
-    if (!name || price === undefined || duration === undefined) {
-      console.error("❌ Missing required fields");
-      return res.status(400).json({ error: "Missing required fields" });
+    const membershipData = normalizeMembershipInput(req.body);
+    const existing = await Membership.findOne({ name: membershipData.name });
+    if (existing) {
+      return res.status(400).json({ error: "Membership plan name already exists." });
     }
 
-    const newMembership = new Membership({
-      name,
-      price,
-      premiumProfilesView,
-      viewContactDetails,
-      duration,
-    });
+    const newMembership = new Membership(membershipData);
 
     await newMembership.save();
 
-    console.log("✅ Membership added:", newMembership); // Debugging Log
     res.status(201).json({
       message: "Membership plan added successfully",
       membership: newMembership,
     });
   } catch (error) {
     console.error("❌ Error adding membership:", error);
-    res.status(500).json({ error: "Server error!", details: error.message });
+    res.status(400).json({ error: error.message || "Unable to add membership plan." });
   }
 };
 
 const editMembership = async (req, res) => {
   try {
     const { id } = req.params;
-    const updatedMembership = await Membership.findByIdAndUpdate(id, req.body, {
+    const membershipData = normalizeMembershipInput(req.body);
+    const duplicate = await Membership.findOne({
+      name: membershipData.name,
+      _id: { $ne: id },
+    });
+    if (duplicate) {
+      return res.status(400).json({ error: "Membership plan name already exists." });
+    }
+
+    const updatedMembership = await Membership.findByIdAndUpdate(id, membershipData, {
       new: true,
+      runValidators: true,
     });
     if (!updatedMembership)
       return res.status(404).json({ error: "Membership plan not found!" });
@@ -73,7 +103,7 @@ const editMembership = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating membership:", error);
-    res.status(500).json({ error: "Server error!" });
+    res.status(400).json({ error: error.message || "Unable to update membership plan." });
   }
 };
 

@@ -3,13 +3,9 @@ const Review = require("../models/Review");
 // ✅ Add Review
 const addReview = async (req, res) => {
   try {
-    console.log("🔥 Incoming request body:", req.body);
-    console.log("📸 Incoming file:", req.file);
-
     const { user_name, message, ratings } = req.body;
 
     if (!user_name || !message || !ratings) {
-      console.error("❌ Missing fields: user_name or message");
       return res
         .status(400)
         .json({ error: "User Name and message are required" });
@@ -27,7 +23,7 @@ const addReview = async (req, res) => {
       .status(201)
       .json({ message: "Review added successfully", review: newReview });
   } catch (error) {
-    console.error("❌ Error adding review:", error);
+    console.error("Error adding review:", error);
     res.status(500).json({ error: "Server error!", details: error.message });
   }
 };
