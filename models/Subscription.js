@@ -25,6 +25,15 @@ const subscriptionSchema = new mongoose.Schema({
   expiresAt: {
     type: Date,
   },
+  membershipDurationMonths: {
+    type: Number,
+    default: null,
+  },
+  source: {
+    type: String,
+    enum: ["user_payment", "admin_manual", "legacy"],
+    default: null,
+  },
   couponCode: {
     type: String,
     default: null,

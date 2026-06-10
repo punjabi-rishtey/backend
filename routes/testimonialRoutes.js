@@ -2,6 +2,19 @@ const express = require("express");
 const router = express.Router();
 const upload = require("../middleware/cloudinaryMiddleware");
 const { addTestimonial, getAllTestimonials, editTestimonial, deleteTestimonial } = require("../controllers/testimonialController");
+const adminAuth = require("../middleware/adminAuthMiddleware");
+
+const handleTestimonialUpload = (req, res, next) => {
+  upload.single("image")(req, res, (error) => {
+    if (!error) {
+      return next();
+    }
+
+    return res.status(400).json({
+      error: error.message || "Invalid testimonial image upload.",
+    });
+  });
+};
 
 /**
  * @swagger
@@ -41,7 +54,7 @@ const { addTestimonial, getAllTestimonials, editTestimonial, deleteTestimonial }
  *       400:
  *         description: Bad request
  */
-router.post("/add", upload.single("image"), addTestimonial);
+router.post("/add", adminAuth, handleTestimonialUpload, addTestimonial);
 
 /**
  * @swagger
@@ -110,7 +123,7 @@ router.get("/all", getAllTestimonials);
  *       404:
  *         description: Testimonial not found
  */
-router.put("/edit/:id", upload.single("image"), editTestimonial);
+router.put("/edit/:id", adminAuth, handleTestimonialUpload, editTestimonial);
 
 /**
  * @swagger
@@ -131,6 +144,6 @@ router.put("/edit/:id", upload.single("image"), editTestimonial);
  *       404:
  *         description: Testimonial not found
  */
-router.delete("/:id", deleteTestimonial);
+router.delete("/:id", adminAuth, deleteTestimonial);
 
 module.exports = router;

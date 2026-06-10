@@ -2,6 +2,12 @@ const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("../config/cloudinary");
 
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
 // ✅ Configure Cloudinary Storage
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
@@ -17,19 +23,19 @@ const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB Limit
   fileFilter: (req, file, cb) => {
-    console.log("📢 Incoming file:", file);
     if (!file) {
-      console.error("❌ No file received!");
-      return cb(new Error("No file uploaded!"), false);
+      return cb(new Error("No file uploaded."), false);
     }
+
+    if (!ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
+      return cb(
+        new Error("Please upload a JPG, PNG, or WebP image."),
+        false
+      );
+    }
+
     cb(null, true);
   }
 });
-
-// ✅ Log Errors
-upload.single("image").handleFile = function handleFile(req, file, cb) {
-  console.log("Uploading file to Cloudinary:", file.originalname);
-  cb(null, file);
-};
 
 module.exports = upload;
