@@ -868,12 +868,19 @@ const forgotPassword = async (req, res) => {
 
     const message = `Click the link to reset your password: ${resetUrl}`;
 
-    await sendEmail(user.email, "Password Reset", message);
+    await Promise.race([
+      sendEmail(user.email, "Password Reset", message),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Email service timeout")), 15000)
+      ),
+    ]);
 
     res.json({ message: "Password reset email sent" });
   } catch (error) {
     console.error("Error in forgot password:", error);
-    res.status(500).json({ error: "Server error" });
+    res
+      .status(500)
+      .json({ message: "Unable to send reset email right now. Please try again shortly." });
   }
 };
 
