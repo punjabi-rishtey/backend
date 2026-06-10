@@ -1,4 +1,5 @@
 const express = require("express");
+const User = require("../models/User");
 const {
   registerUser,
   loginUser,
@@ -27,28 +28,56 @@ const checkProfileCompletion = require("../middleware/checkProfileCompletion");
 
 const router = express.Router();
 
-// New route to fetch basic details of all users
-router.get("/all-basic", getAllBasicUserDetails);
+const requireApprovedMembershipAccess = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select("status metadata.exp_date");
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (user.status !== "Approved") {
+      return res.status(403).json({
+        error:
+          "Your profile is not active yet. Please wait for approval to access this feature.",
+      });
+    }
+
+    if (user.metadata?.exp_date && new Date() > user.metadata.exp_date) {
+      return res.status(403).json({
+        error: "Your subscription has expired. Please renew to access this feature.",
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Error validating membership access:", error);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
+
+// New route to fetch basic details of active users for approved members
+router.get(
+  "/all-basic",
+  protect,
+  requireApprovedMembershipAccess,
+  getAllBasicUserDetails
+);
 
 // Updated register route to handle file uploads
 router.post("/register", profilePhotoUpload.array("profile_pictures", 10), registerUser);
 
 router.post("/login", loginUser);
 
-router.get("/search", protect, searchMatches);
+router.get("/search", protect, requireApprovedMembershipAccess, searchMatches);
 
-router.get("/find-my-partner", protect, checkProfileCompletion, async (req, res) => {
+router.get(
+  "/find-my-partner",
+  protect,
+  requireApprovedMembershipAccess,
+  checkProfileCompletion,
+  async (req, res) => {
   try {
-    const User = require("../models/User");
-    const user = await User.findById(req.user.id);
-    
-    // Check if subscription has expired
-    if (user.metadata.exp_date && new Date() > user.metadata.exp_date) {
-      return res.status(403).json({
-        error: "Your subscription has expired. Please renew to access this feature."
-      });
-    }
-    
     res.json({ message: "Welcome to Find My Partner!" });
   } catch (error) {
     res.status(500).json({ error: "Server error" });

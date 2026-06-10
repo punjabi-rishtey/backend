@@ -10,7 +10,7 @@ const startExpiryCheckCron = () => {
       const result = await User.updateMany(
         {
           "metadata.exp_date": { $lt: new Date() },
-          status: { $ne: "Expired" },
+          status: "Approved",
         },
         { $set: { status: "Expired" } }
       );

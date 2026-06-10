@@ -98,8 +98,8 @@ const userSchema = new mongoose.Schema(
       register_date: { type: Date, default: Date.now },
       exp_date: {
         type: Date,
-        default: () => new Date(+new Date() + 365 * 24 * 60 * 60 * 1000),
-      }, // 1 year expiry
+        default: null,
+      }, // set when membership is approved
     },
 
     profile_pictures: [{ type: String }],
@@ -132,6 +132,23 @@ const userSchema = new mongoose.Schema(
     preferences: { type: mongoose.Schema.Types.ObjectId, ref: "Preference" },
 
     is_deleted: { type: Boolean, default: false },
+    deletion_metadata: {
+      deleted_at: { type: Date },
+      deleted_by: { type: mongoose.Schema.Types.ObjectId, ref: "Admin" },
+      previous_status: {
+        type: String,
+        enum: [
+          "Incomplete",
+          "Pending",
+          "Approved",
+          "Expired",
+          "Canceled",
+          "Unapproved",
+        ],
+      },
+      restored_at: { type: Date },
+      restored_by: { type: mongoose.Schema.Types.ObjectId, ref: "Admin" },
+    },
   },
   {
     toJSON: {
@@ -154,6 +171,9 @@ const userSchema = new mongoose.Schema(
         if (!ret.profile_picture && Array.isArray(ret.profile_pictures) && ret.profile_pictures.length > 0) {
           ret.profile_picture = ret.profile_pictures[0];
         }
+        delete ret.password;
+        delete ret.resetPasswordToken;
+        delete ret.resetPasswordExpires;
         delete ret.profile_picture_assets;
         return ret;
       },
@@ -176,6 +196,9 @@ const userSchema = new mongoose.Schema(
         if (!ret.profile_picture && Array.isArray(ret.profile_pictures) && ret.profile_pictures.length > 0) {
           ret.profile_picture = ret.profile_pictures[0];
         }
+        delete ret.password;
+        delete ret.resetPasswordToken;
+        delete ret.resetPasswordExpires;
         delete ret.profile_picture_assets;
         return ret;
       },

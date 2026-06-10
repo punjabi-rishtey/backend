@@ -80,8 +80,6 @@ const startExpiryCheckCron = require("./utils/checkExpiryCron");
 const messageRoutes = require("./routes/messageRoutes");
 
 loadEnv();
-connectDB();
-startExpiryCheckCron();
 
 const app = express();
 
@@ -96,6 +94,10 @@ const exactAllowedOrigins = new Set([
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:8080",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+  "http://127.0.0.1:8080",
+  "http://127.0.0.1:8081",
 ]);
 
 const allowedPreviewHostnameRules = [
@@ -178,7 +180,17 @@ app.use((err, req, res, next) => {
 
 // ✅ Start Server
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`⚡ Server running on port ${PORT}`));
+const startServer = async () => {
+  try {
+    await connectDB();
+    startExpiryCheckCron();
+    app.listen(PORT, () => console.log(`⚡ Server running on port ${PORT}`));
+  } catch (error) {
+    process.exit(1);
+  }
+};
+
+startServer();
 
 // ✅ Swagger Docs
 swaggerDocs(app);

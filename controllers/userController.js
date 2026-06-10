@@ -36,6 +36,27 @@ const sendProfilePhotoError = (res, error, fallbackMessage) => {
   return res.status(statusCode).json(payload);
 };
 
+const getResetPasswordBaseUrl = () => {
+  const explicitBaseUrl =
+    process.env.RESET_PASSWORD_BASE_URL || process.env.USER_FRONTEND_URL;
+
+  if (explicitBaseUrl) {
+    return explicitBaseUrl.replace(/\/+$/, "");
+  }
+
+  const envFile = String(process.env.ENV_FILE || "");
+  const isQaEnv = envFile.includes(".env.qa");
+
+  return isQaEnv
+    ? "http://127.0.0.1:5173"
+    : "https://www.punjabi-rishtey.com";
+};
+
+const activePublicUserFilter = {
+  status: "Approved",
+  is_deleted: { $ne: true },
+};
+
 // Delete current user's account and associated data
 const deleteAccount = async (req, res) => {
   try {
@@ -441,7 +462,6 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log("🔍 Login Attempt for Email:", email);
 
     // ✅ Find user by email
     const user = await User.findOne({ email });
@@ -451,11 +471,8 @@ const loginUser = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      console.log("❌ Password does not match!");
       return res.status(400).json({ message: "Invalid Credentials" });
     }
-
-    console.log("✅ Password Matched! Generating JWT...");
 
     // ✅ Generate JWT Token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
@@ -473,7 +490,7 @@ const searchMatches = async (req, res) => {
     const { gender, caste, religion, marital_status, city, minAge, maxAge } =
       req.query;
 
-    let query = {};
+    const query = { ...activePublicUserFilter };
 
     if (gender) query.gender = gender;
     if (caste) query.caste = caste;
@@ -567,6 +584,17 @@ const updateUserProfile = async (req, res) => {
   try {
     // Accept either "userId" or "id" from the route parameters
     const userId = req.params.userId || req.params.id;
+    const requesterUserId = req.user?.id || req.user?._id;
+
+    if (!req.admin && !requesterUserId) {
+      return res.status(401).json({ message: "Not authorized" });
+    }
+
+    if (!req.admin && requesterUserId !== userId) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to update this profile" });
+    }
 
     // Define allowed fields for update
     const allowedUpdates = [
@@ -601,6 +629,12 @@ const updateUserProfile = async (req, res) => {
       }
     }
 
+    if (Object.prototype.hasOwnProperty.call(updates, "status") && !req.admin) {
+      return res
+        .status(403)
+        .json({ message: "Only admins can update user status" });
+    }
+
     // Convert height object to a string if needed (e.g., {feet:"5", inches:"8"} => "5'8\"")
     if (typeof updates.height === "object") {
       updates.height = `${updates.height.feet}'${updates.height.inches}"`;
@@ -608,19 +642,12 @@ const updateUserProfile = async (req, res) => {
 
     // Handle manglik field compatibility (support both boolean and string values)
     if (updates.manglik !== undefined) {
-      console.log(
-        "Received manglik value:",
-        updates.manglik,
-        "Type:",
-        typeof updates.manglik
-      );
       if (typeof updates.manglik === "boolean") {
         // Convert legacy boolean values to strings
         updates.manglik = updates.manglik ? "manglik" : "non_manglik";
       }
       // Map frontend field name to backend field name
       updates.mangalik = updates.manglik;
-      console.log("Converted to mangalik:", updates.mangalik);
       delete updates.manglik;
     }
 
@@ -707,12 +734,6 @@ const updateUserProfile = async (req, res) => {
         return res.status(400).json({ error: "Mobile number already in use." });
       }
     }
-
-    // Debug: Log what we're about to save to database
-    console.log(
-      "Final updates object before DB save:",
-      JSON.stringify(updates, null, 2)
-    );
 
     // Update user profile in MongoDB
     const updatedUser = await User.findOneAndUpdate({ _id: userId }, updates, {
@@ -843,8 +864,7 @@ const forgotPassword = async (req, res) => {
 
     // ✅ Send reset email
     // In your forgotPassword controller
-    const resetUrl = `https://www.punjabi-rishtey.com/reset-password/${resetToken}`;
-    // const resetUrl = `https://user-frontend-seven-virid.vercel.app/reset-password/${resetToken}`;
+    const resetUrl = `${getResetPasswordBaseUrl()}/reset-password/${resetToken}`;
 
     const message = `Click the link to reset your password: ${resetUrl}`;
 
@@ -947,15 +967,34 @@ const changePassword = async (req, res) => {
 // ✅ Submit Inquiry (User Side)
 const submitInquiry = async (req, res) => {
   try {
-    const { name, email, phone, subject, message } = req.body;
+    const name = String(req.body.name || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const phone = String(req.body.phone || "").trim();
+    const subject = String(req.body.subject || "").trim();
+    const message = String(req.body.message || "").trim();
 
     if (!name || !email || !phone || !subject || !message) {
       return res.status(400).json({ error: "All fields are required." });
     }
 
+    if (!validator.isEmail(email)) {
+      return res.status(400).json({ error: "Please enter a valid email." });
+    }
+
+    if (phone.replace(/\D/g, "").length < 7) {
+      return res.status(400).json({ error: "Please enter a valid phone number." });
+    }
+
     const inquiry = new Inquiry({ name, email, phone, subject, message });
     await inquiry.save();
-    res.status(201).json({ message: "Inquiry submitted successfully!" });
+
+    res.status(201).json({
+      message: "Inquiry submitted successfully!",
+      inquiry: {
+        id: inquiry._id,
+        status: inquiry.status,
+      },
+    });
   } catch (error) {
     res.status(500).json({ error: "Server Error: Unable to submit inquiry." });
   }
@@ -1004,7 +1043,7 @@ const submitInquiry = async (req, res) => {
 // };
 const getAllBasicUserDetails = async (req, res) => {
   try {
-    const users = await User.find({})
+    const users = await User.find(activePublicUserFilter)
       .populate("preferences")
       .populate("profession", "occupation designation")
       .select(
@@ -1130,6 +1169,8 @@ const getProfileCompletion = async (req, res) => {
 // };
 
 const createSubscription = async (req, res) => {
+  let screenshotUrl = "";
+
   try {
     // 1) Get the authenticated user's ID from req.user (set by your auth middleware)
     const userId = req.user.id;
@@ -1137,23 +1178,33 @@ const createSubscription = async (req, res) => {
     const { fullName, phoneNumber, couponCode, membershipId } = req.body;
 
     // 2) Validate text fields
-    if (!fullName || !phoneNumber || !membershipId) {
+    const safeFullName = String(fullName || "").trim();
+    const safePhoneNumber = String(phoneNumber || "").trim();
+
+    if (!safeFullName || !safePhoneNumber || !membershipId) {
       return res
         .status(400)
-        .json({ error: "Missing required fields: fullName or phoneNumber." });
+        .json({ error: "Name, phone number, and membership plan are required." });
+    }
+
+    if (!/^\d{10}$/.test(safePhoneNumber)) {
+      return res
+        .status(400)
+        .json({ error: "Phone number must be 10 digits." });
     }
 
     // 3) Validate that a file was uploaded (Multer sets req.file)
     if (!req.file) {
-      return res.status(400).json({ error: "Screenshot file is required." });
+      return res.status(400).json({ error: "Payment screenshot is required." });
     }
 
-    // 4) Upload file to Cloudinary
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: "subscriptions",
-      transformation: [{ width: 800, crop: "limit" }],
-    });
-    const screenshotUrl = result.secure_url;
+    const membershipTier = await Membership.findById(membershipId).select(
+      "duration price"
+    );
+
+    if (!membershipTier) {
+      return res.status(404).json({ error: "Membership plan not found." });
+    }
 
     // 5) Check if user provided a coupon
     let discountAmount = 0;
@@ -1161,7 +1212,7 @@ const createSubscription = async (req, res) => {
 
     if (couponCode) {
       const coupon = await Coupon.findOne({
-        code: couponCode.trim(),
+        code: couponCode.trim().toUpperCase(),
         isActive: true,
       });
 
@@ -1172,8 +1223,7 @@ const createSubscription = async (req, res) => {
           .json({ error: "Invalid or inactive coupon code." });
       }
 
-      // Example base subscription cost
-      const basePrice = 999;
+      const basePrice = Number(membershipTier.price) || 0;
 
       if (coupon.discountType === "percentage") {
         discountAmount = (basePrice * coupon.discountValue) / 100;
@@ -1182,38 +1232,29 @@ const createSubscription = async (req, res) => {
         discountAmount = coupon.discountValue;
       }
 
+      discountAmount = Math.min(basePrice, Math.max(0, discountAmount));
       validatedCouponCode = coupon.code;
     }
 
-    let expiresAt;
-    try {
-      const membershipTier = await Membership.findById(membershipId).select(
-        "duration"
-      );
+    // 4) Upload file to Cloudinary after text/coupon validation has passed.
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: "subscriptions",
+      transformation: [{ width: 800, crop: "limit" }],
+    });
+    screenshotUrl = result.secure_url;
 
-      if (!membershipTier) {
-        return res.status(404).json({ error: "wrong membershipId " });
-      }
-      const currentDate = new Date();
-      expiresAt = new Date(currentDate);
-      expiresAt.setMonth(currentDate.getMonth() + membershipTier.duration);
-
-      console.log(
-        "> membershipTier.duration | expiresAt: ",
-        membershipTier.duration,
-        expiresAt
-      );
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Server error" });
-    }
+    const currentDate = new Date();
+    const expiresAt = new Date(currentDate);
+    expiresAt.setMonth(currentDate.getMonth() + membershipTier.duration);
 
     // 6) Create subscription document
     const subscription = new Subscription({
       user: userId,
-      fullName,
-      phoneNumber,
+      fullName: safeFullName,
+      phoneNumber: safePhoneNumber,
       screenshotUrl,
+      membershipDurationMonths: membershipTier.duration,
+      source: "user_payment",
       couponCode: validatedCouponCode,
       discountAmount,
       expiresAt,
@@ -1232,6 +1273,14 @@ const createSubscription = async (req, res) => {
     return res
       .status(500)
       .json({ error: "Server error", details: error.message });
+  } finally {
+    if (req.file?.path) {
+      fs.unlink(req.file.path, (error) => {
+        if (error) {
+          console.error("Error deleting local subscription screenshot:", error.message);
+        }
+      });
+    }
   }
 };
 
