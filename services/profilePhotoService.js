@@ -15,7 +15,12 @@ const parseCloudinaryPublicId = (url) => {
   if (!url || typeof url !== "string") return "";
 
   try {
-    const parsed = new URL(url);
+    const normalizedUrl = url.startsWith("//")
+      ? `https:${url}`
+      : url.startsWith("http")
+        ? url
+        : `https://${url}`;
+    const parsed = new URL(normalizedUrl);
     const parts = parsed.pathname.split("/").filter(Boolean);
     const uploadIndex = parts.indexOf("upload");
     if (uploadIndex === -1 || uploadIndex + 1 >= parts.length) return "";
@@ -30,6 +35,45 @@ const parseCloudinaryPublicId = (url) => {
   } catch (error) {
     return "";
   }
+};
+
+const normalizePhotoUrlForCompare = (url) => {
+  if (!url || typeof url !== "string") return "";
+
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+
+  if (trimmed.startsWith("//")) {
+    return `https:${trimmed}`;
+  }
+
+  if (/^http:\/\//i.test(trimmed)) {
+    return trimmed.replace(/^http:\/\//i, "https://");
+  }
+
+  if (/^https:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `https://${trimmed}`;
+};
+
+const isSameProfilePhoto = (asset, imageUrl) => {
+  const requestedUrl = normalizePhotoUrlForCompare(imageUrl);
+  const assetUrl = normalizePhotoUrlForCompare(asset?.url);
+
+  if (requestedUrl && assetUrl && requestedUrl === assetUrl) {
+    return true;
+  }
+
+  const requestedPublicId = parseCloudinaryPublicId(imageUrl);
+  const assetPublicId = asset?.public_id || parseCloudinaryPublicId(asset?.url);
+
+  return Boolean(
+    requestedPublicId &&
+      assetPublicId &&
+      requestedPublicId === assetPublicId
+  );
 };
 
 const normalizeProfilePhotoAssets = (user) => {
@@ -175,18 +219,22 @@ const deleteProfilePhotoForUser = async (user, imageUrl) => {
   }
 
   const existingAssets = normalizeProfilePhotoAssets(user);
-  const assetToDelete = existingAssets.find((asset) => asset.url === imageUrl);
+  const assetToDelete = existingAssets.find((asset) =>
+    isSameProfilePhoto(asset, imageUrl)
+  );
   if (!assetToDelete) {
     throw new ProfilePhotoError("Image not found in profile", 400);
   }
 
   await destroyProfilePhotoAsset(assetToDelete);
 
-  const nextAssets = existingAssets.filter((asset) => asset.url !== imageUrl);
+  const nextAssets = existingAssets.filter(
+    (asset) => !isSameProfilePhoto(asset, imageUrl)
+  );
   user.profile_picture_assets = nextAssets;
   user.profile_pictures = nextAssets.map((asset) => asset.url);
 
-  if (user.profile_picture === imageUrl || !user.profile_picture) {
+  if (isSameProfilePhoto({ url: user.profile_picture }, imageUrl) || !user.profile_picture) {
     user.profile_picture = user.profile_pictures[0] || "";
   }
 
@@ -195,7 +243,7 @@ const deleteProfilePhotoForUser = async (user, imageUrl) => {
 };
 
 const setPrimaryProfilePhotoForUser = async (user, imageUrl) => {
-  normalizeProfilePhotoAssets(user);
+  const existingAssets = normalizeProfilePhotoAssets(user);
 
   if (!imageUrl) {
     user.profile_picture = "";
@@ -203,11 +251,15 @@ const setPrimaryProfilePhotoForUser = async (user, imageUrl) => {
     return profilePhotoPayload(user);
   }
 
-  if (!user.profile_pictures.includes(imageUrl)) {
+  const selectedAsset = existingAssets.find((asset) =>
+    isSameProfilePhoto(asset, imageUrl)
+  );
+
+  if (!selectedAsset) {
     throw new ProfilePhotoError("Image not found in your uploaded pictures", 400);
   }
 
-  user.profile_picture = imageUrl;
+  user.profile_picture = selectedAsset.url;
   await user.save();
   return profilePhotoPayload(user);
 };
@@ -224,6 +276,7 @@ module.exports = {
   MAX_PROFILE_PICTURES,
   ProfilePhotoError,
   parseCloudinaryPublicId,
+  normalizePhotoUrlForCompare,
   normalizeProfilePhotoAssets,
   profilePhotoPayload,
   uploadProfilePhotoFiles,
