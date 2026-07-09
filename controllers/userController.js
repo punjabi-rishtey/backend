@@ -14,8 +14,10 @@ const crypto = require("crypto");
 const cloudinary = require("../config/cloudinary");
 const Inquiry = require("../models/inquiryModel");
 const Subscription = require("../models/Subscription");
-const Coupon = require("../models/Coupon");
 const Membership = require("../models/Membership");
+const {
+  normalizeAnnualMembershipDurationMonths,
+} = require("../services/membershipPlanPolicy");
 const {
   ProfilePhotoError,
   uploadProfilePhotoFiles,
@@ -1235,7 +1237,7 @@ const createSubscription = async (req, res) => {
     // 1) Get the authenticated user's ID from req.user (set by your auth middleware)
     const userId = req.user.id;
 
-    const { fullName, phoneNumber, couponCode, membershipId } = req.body;
+    const { fullName, phoneNumber, membershipId } = req.body;
 
     // 2) Validate text fields
     const safeFullName = String(fullName || "").trim();
@@ -1266,37 +1268,11 @@ const createSubscription = async (req, res) => {
       return res.status(404).json({ error: "Membership plan not found." });
     }
 
-    // 5) Check if user provided a coupon
-    let discountAmount = 0;
-    let validatedCouponCode = null;
+    const membershipDurationMonths = normalizeAnnualMembershipDurationMonths(
+      membershipTier.duration
+    );
 
-    if (couponCode) {
-      const coupon = await Coupon.findOne({
-        code: couponCode.trim().toUpperCase(),
-        isActive: true,
-      });
-
-      if (!coupon) {
-        // Coupon not found or inactive
-        return res
-          .status(400)
-          .json({ error: "Invalid or inactive coupon code." });
-      }
-
-      const basePrice = Number(membershipTier.price) || 0;
-
-      if (coupon.discountType === "percentage") {
-        discountAmount = (basePrice * coupon.discountValue) / 100;
-      } else {
-        // 'flat' discount
-        discountAmount = coupon.discountValue;
-      }
-
-      discountAmount = Math.min(basePrice, Math.max(0, discountAmount));
-      validatedCouponCode = coupon.code;
-    }
-
-    // 4) Upload file to Cloudinary after text/coupon validation has passed.
+    // 4) Upload file to Cloudinary after text validation has passed.
     const result = await cloudinary.uploader.upload(req.file.path, {
       folder: "subscriptions",
       transformation: [{ width: 800, crop: "limit" }],
@@ -1305,7 +1281,7 @@ const createSubscription = async (req, res) => {
 
     const currentDate = new Date();
     const expiresAt = new Date(currentDate);
-    expiresAt.setMonth(currentDate.getMonth() + membershipTier.duration);
+    expiresAt.setMonth(currentDate.getMonth() + membershipDurationMonths);
 
     // 6) Create subscription document
     const subscription = new Subscription({
@@ -1313,10 +1289,10 @@ const createSubscription = async (req, res) => {
       fullName: safeFullName,
       phoneNumber: safePhoneNumber,
       screenshotUrl,
-      membershipDurationMonths: membershipTier.duration,
+      membershipDurationMonths,
       source: "user_payment",
-      couponCode: validatedCouponCode,
-      discountAmount,
+      couponCode: null,
+      discountAmount: 0,
       expiresAt,
       // createdAt is automatic, expiresAt handled in pre-save hook
     });
