@@ -55,7 +55,13 @@ const getResetPasswordBaseUrl = () => {
 const activePublicUserFilter = {
   status: "Approved",
   is_deleted: { $ne: true },
+  profile_visibility: { $ne: "private" },
 };
+
+const PRIVATE_PROFILE_MESSAGE =
+  "This profile is private. For an introduction, please contact Punjabi Rishtey support.";
+const PRIVATE_MODE_CONTACT_MESSAGE =
+  "For an introduction, please contact Punjabi Rishtey support.";
 
 // Delete current user's account and associated data
 const deleteAccount = async (req, res) => {
@@ -529,12 +535,29 @@ const getUserSubscription = async (req, res) => {
 const getUserProfile = async (req, res) => {
   try {
     const userId = req.params.id;
+    const requesterUserId = req.user?.id || req.user?._id;
+    const isOwnProfile =
+      requesterUserId && requesterUserId.toString() === userId.toString();
 
     // Fetch user details and exclude password
     const user = await User.findById(userId).select("-password");
     if (!user) {
       return res.status(404).json({ message: "User Not Found" });
     }
+
+    const targetVisibility = user.profile_visibility || "public";
+    if (targetVisibility === "private" && !isOwnProfile) {
+      return res.status(403).json({
+        code: "PROFILE_PRIVATE",
+        message: PRIVATE_PROFILE_MESSAGE,
+      });
+    }
+
+    const requester =
+      !isOwnProfile && requesterUserId
+        ? await User.findById(requesterUserId).select("profile_visibility")
+        : null;
+    const requesterIsPrivate = requester?.profile_visibility === "private";
 
     // Fetch related data using manual queries (for better control)
     const [family, education, profession, astrology] = await Promise.all([
@@ -571,7 +594,15 @@ const getUserProfile = async (req, res) => {
       education_details: education, // Attach education details
       profession_details: profession, // Attach profession details
       astrology_details: astrology, // Attach astrology details
+      contact_access: requesterIsPrivate ? "admin_intro_required" : "full",
+      contact_message: requesterIsPrivate ? PRIVATE_MODE_CONTACT_MESSAGE : "",
     };
+
+    if (requesterIsPrivate) {
+      userProfile.email = "";
+      userProfile.mobile = "";
+      userProfile.secondary_contact = "";
+    }
 
     res.json(userProfile);
   } catch (error) {
@@ -619,6 +650,7 @@ const updateUserProfile = async (req, res) => {
       "about_myself",
       "looking_for",
       "secondary_contact",
+      "profile_visibility",
     ];
 
     // Filter only allowed fields
@@ -633,6 +665,27 @@ const updateUserProfile = async (req, res) => {
       return res
         .status(403)
         .json({ message: "Only admins can update user status" });
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(updates, "profile_visibility") &&
+      !req.admin
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Only admins can update profile visibility" });
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "profile_visibility")) {
+      const visibility = String(updates.profile_visibility || "")
+        .trim()
+        .toLowerCase();
+      if (!["public", "private"].includes(visibility)) {
+        return res
+          .status(400)
+          .json({ message: "Profile visibility must be public or private." });
+      }
+      updates.profile_visibility = visibility;
     }
 
     // Convert height object to a string if needed (e.g., {feet:"5", inches:"8"} => "5'8\"")
