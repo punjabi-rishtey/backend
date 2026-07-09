@@ -1,10 +1,14 @@
 // ✅ Membership Controller
 const Membership = require("../models/Membership");
+const {
+  normalizeAnnualMembershipDurationMonths,
+  normalizeAnnualMembershipPrice,
+} = require("../services/membershipPlanPolicy");
 
 const normalizeMembershipInput = (body) => {
   const name = String(body.name || "").trim();
-  const price = Number(body.price);
-  const duration = Number(body.duration);
+  const price = normalizeAnnualMembershipPrice(body.price);
+  const duration = normalizeAnnualMembershipDurationMonths(body.duration);
   const premiumProfilesView =
     body.premiumProfilesView === undefined ||
     String(body.premiumProfilesView).trim() === ""
@@ -37,9 +41,9 @@ const getAllMemberships = async (req, res) => {
     const formattedMemberships = memberships.map((membership) => ({
       _id: membership._id, // Ensure _id is included
       name: membership.name,
-      price: membership.price,
+      price: normalizeAnnualMembershipPrice(membership.price),
       currency: "₹",
-      duration: membership.duration,
+      duration: normalizeAnnualMembershipDurationMonths(membership.duration),
       premiumProfilesView: membership.premiumProfilesView,
       mostPopular: membership.name === "Gold",
       features: [
