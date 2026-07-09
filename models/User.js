@@ -124,6 +124,12 @@ const userSchema = new mongoose.Schema(
     // Selected profile picture (falls back to first in profile_pictures if not set)
     profile_picture: { type: String, default: "" },
 
+    profile_visibility: {
+      type: String,
+      enum: ["public", "private"],
+      default: "public",
+    },
+
     // References to Related Collections
     family: { type: mongoose.Schema.Types.ObjectId, ref: "Family" },
     education: { type: mongoose.Schema.Types.ObjectId, ref: "Education" },
@@ -171,6 +177,7 @@ const userSchema = new mongoose.Schema(
         if (!ret.profile_picture && Array.isArray(ret.profile_pictures) && ret.profile_pictures.length > 0) {
           ret.profile_picture = ret.profile_pictures[0];
         }
+        ret.profile_visibility = ret.profile_visibility || "public";
         delete ret.password;
         delete ret.resetPasswordToken;
         delete ret.resetPasswordExpires;
@@ -196,6 +203,7 @@ const userSchema = new mongoose.Schema(
         if (!ret.profile_picture && Array.isArray(ret.profile_pictures) && ret.profile_pictures.length > 0) {
           ret.profile_picture = ret.profile_pictures[0];
         }
+        ret.profile_visibility = ret.profile_visibility || "public";
         delete ret.password;
         delete ret.resetPasswordToken;
         delete ret.resetPasswordExpires;
