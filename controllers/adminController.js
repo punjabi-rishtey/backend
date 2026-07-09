@@ -736,6 +736,18 @@ const editUser = async (req, res) => {
     delete updates.profile_picture;
     delete updates.profile_picture_assets;
 
+    if (Object.prototype.hasOwnProperty.call(updates, "profile_visibility")) {
+      const visibility = String(updates.profile_visibility || "")
+        .trim()
+        .toLowerCase();
+      if (!["public", "private"].includes(visibility)) {
+        return res
+          .status(400)
+          .json({ message: "Profile visibility must be public or private." });
+      }
+      updates.profile_visibility = visibility;
+    }
+
     // Handle new optional text fields sanitization
     const sanitizeText = (v) => {
       if (v === undefined) return undefined;
