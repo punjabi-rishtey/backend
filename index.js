@@ -90,6 +90,7 @@ const exactAllowedOrigins = new Set([
   "https://admin-frontend-two-vert.vercel.app",
   "https://admin-frontend-revised.vercel.app",
   "https://user-frontend-seven-virid.vercel.app",
+  "https://punjabi-rishtey.com",
   "https://www.punjabi-rishtey.com",
   "http://localhost:5173",
   "http://localhost:5174",
