@@ -54,16 +54,70 @@ const getResetPasswordBaseUrl = () => {
     : "https://www.punjabi-rishtey.com";
 };
 
-const activePublicUserFilter = {
-  status: "Approved",
+const memberDiscoverableUserFilter = {
+  status: { $in: ["Approved", "Expired"] },
   is_deleted: { $ne: true },
   profile_visibility: { $ne: "private" },
+};
+
+const escapeRegExp = (value) =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const exactCaseInsensitiveRegExp = (value) =>
+  new RegExp(`^${escapeRegExp(value)}$`, "i");
+
+const isSubscriptionExpired = (user) =>
+  Boolean(user?.metadata?.exp_date && new Date() > user.metadata.exp_date);
+
+const hasActiveMembershipAccess = (user) =>
+  user?.status === "Approved" && !isSubscriptionExpired(user);
+
+const getOppositeGender = (gender) => {
+  const normalizedGender = String(gender || "").trim().toLowerCase();
+
+  if (normalizedGender === "male") return "female";
+  if (normalizedGender === "female") return "male";
+
+  return null;
+};
+
+const buildMemberDiscoverableUserFilter = (requester) => {
+  const query = { ...memberDiscoverableUserFilter };
+  const oppositeGender = getOppositeGender(requester?.gender);
+
+  if (requester?._id) {
+    query._id = { $ne: requester._id };
+  }
+
+  if (oppositeGender) {
+    query.gender = exactCaseInsensitiveRegExp(oppositeGender);
+  } else {
+    query.gender = exactCaseInsensitiveRegExp("__no_discoverable_gender__");
+  }
+
+  return query;
+};
+
+const isDiscoverableMemberProfile = (user) =>
+  ["Approved", "Expired"].includes(user?.status) &&
+  user?.is_deleted !== true &&
+  (user?.profile_visibility || "public") !== "private";
+
+const isOppositeGenderProfile = (requester, target) => {
+  const oppositeGender = getOppositeGender(requester?.gender);
+  const targetGender = String(target?.gender || "").trim().toLowerCase();
+
+  return Boolean(oppositeGender && targetGender === oppositeGender);
 };
 
 const PRIVATE_PROFILE_MESSAGE =
   "This profile is private. For an introduction, please contact Punjabi Rishtey support.";
 const PRIVATE_MODE_CONTACT_MESSAGE =
   "For an introduction, please contact Punjabi Rishtey support.";
+const PROFILE_UNAVAILABLE_MESSAGE =
+  "This profile is not available for member discovery.";
+const MEMBERSHIP_REQUIRED_MESSAGE =
+  "Please renew your membership to view other profiles.";
 
 // Delete current user's account and associated data
 const deleteAccount = async (req, res) => {
@@ -498,9 +552,11 @@ const searchMatches = async (req, res) => {
     const { gender, caste, religion, marital_status, city, minAge, maxAge } =
       req.query;
 
-    const query = { ...activePublicUserFilter };
+    const query = buildMemberDiscoverableUserFilter(req.membershipUser);
 
-    if (gender) query.gender = gender;
+    if (gender && !query.gender) {
+      query.gender = exactCaseInsensitiveRegExp(gender);
+    }
     if (caste) query.caste = caste;
     if (religion) query.religion = religion;
     if (marital_status) query.marital_status = marital_status;
@@ -547,18 +603,44 @@ const getUserProfile = async (req, res) => {
       return res.status(404).json({ message: "User Not Found" });
     }
 
-    const targetVisibility = user.profile_visibility || "public";
-    if (targetVisibility === "private" && !isOwnProfile) {
-      return res.status(403).json({
-        code: "PROFILE_PRIVATE",
-        message: PRIVATE_PROFILE_MESSAGE,
-      });
-    }
-
     const requester =
       !isOwnProfile && requesterUserId
-        ? await User.findById(requesterUserId).select("profile_visibility")
+        ? await User.findById(requesterUserId).select(
+            "status metadata.exp_date gender profile_visibility"
+          )
         : null;
+
+    if (!isOwnProfile) {
+      if (!requester) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (!hasActiveMembershipAccess(requester)) {
+        return res.status(403).json({
+          code: "MEMBERSHIP_REQUIRED",
+          message: MEMBERSHIP_REQUIRED_MESSAGE,
+        });
+      }
+
+      const targetVisibility = user.profile_visibility || "public";
+      if (targetVisibility === "private") {
+        return res.status(403).json({
+          code: "PROFILE_PRIVATE",
+          message: PRIVATE_PROFILE_MESSAGE,
+        });
+      }
+
+      if (
+        !isDiscoverableMemberProfile(user) ||
+        !isOppositeGenderProfile(requester, user)
+      ) {
+        return res.status(403).json({
+          code: "PROFILE_UNAVAILABLE",
+          message: PROFILE_UNAVAILABLE_MESSAGE,
+        });
+      }
+    }
+
     const requesterIsPrivate = requester?.profile_visibility === "private";
 
     // Fetch related data using manual queries (for better control)
@@ -1105,7 +1187,9 @@ const submitInquiry = async (req, res) => {
 // };
 const getAllBasicUserDetails = async (req, res) => {
   try {
-    const users = await User.find(activePublicUserFilter)
+    const users = await User.find(
+      buildMemberDiscoverableUserFilter(req.membershipUser)
+    )
       .populate("preferences")
       .populate("profession", "occupation designation")
       .select(

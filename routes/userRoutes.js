@@ -30,7 +30,9 @@ const router = express.Router();
 
 const requireApprovedMembershipAccess = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id).select("status metadata.exp_date");
+    const user = await User.findById(req.user.id).select(
+      "status metadata.exp_date gender"
+    );
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -49,6 +51,7 @@ const requireApprovedMembershipAccess = async (req, res, next) => {
       });
     }
 
+    req.membershipUser = user;
     next();
   } catch (error) {
     console.error("Error validating membership access:", error);
