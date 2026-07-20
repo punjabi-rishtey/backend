@@ -533,9 +533,7 @@ const approveUser = async (req, res) => {
     const fullName = userdetail.name;
     const phoneNumber = userdetail.mobile;
 
-    // Calculate expiresAt based on startDate
-    const expiresAt = new Date(start);
-    expiresAt.setMonth(start.getMonth() + parsedExpiry);
+    const expiresAt = calculateExpiryDateFromMonths(start, parsedExpiry);
 
     // Check if subscription exists
     let subscription = await Subscription.findOne({ user: id });
@@ -553,20 +551,14 @@ const approveUser = async (req, res) => {
       });
       await subscription.save();
     } else {
-      const subscriptionSource = inferSubscriptionSource(subscription);
-
       subscription.fullName = fullName;
       subscription.phoneNumber = phoneNumber;
       subscription.createdAt = start;
       subscription.expiresAt = expiresAt;
       subscription.membershipDurationMonths = parsedExpiry;
-      subscription.source = subscriptionSource;
+      subscription.source = "admin_manual";
 
-      if (
-        subscriptionSource === "admin_manual" &&
-        (!subscription.screenshotUrl ||
-          subscription.screenshotUrl === ADMIN_MANUAL_PAYMENT_PLACEHOLDER)
-      ) {
+      if (!subscription.screenshotUrl) {
         subscription.screenshotUrl = ADMIN_MANUAL_PAYMENT_PLACEHOLDER;
       }
 
@@ -588,7 +580,10 @@ const approveUser = async (req, res) => {
     res.json({ message: "User approved successfully", user });
   } catch (error) {
     console.error("Error approving user:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      message: error.message || "Unable to approve membership.",
+      error: error.message,
+    });
   }
 };
 
