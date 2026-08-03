@@ -10,4 +10,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping health endpoint
-        run: curl -fsS --max-time 30 https://backend-nm1z.onrender.com/health
+        run: |
+          for attempt in 1 2 3; do
+            if curl -fsS --retry 2 --retry-delay 5 --max-time 90 \
+              https://backend-nm1z.onrender.com/health; then
+              echo
+              echo "Health check succeeded on attempt ${attempt}."
+              exit 0
+            fi
+            echo "Attempt ${attempt} failed; retrying..."
+            sleep 10
+          done
+          echo "Health check failed after 3 attempts."
+          exit 1
