@@ -11,6 +11,7 @@ const Astrology = require("../models/Astrology");
 const Inquiry = require("../models/inquiryModel");
 const Preference = require("../models/Preference");
 const Subscription = require("../models/Subscription");
+const Session = require("../models/Session");
 const Coupon = require("../models/Coupon");
 const Message = require("../models/Message");
 const Review = require("../models/Review");
@@ -1595,6 +1596,8 @@ const changeUserPasswordByAdmin = async (req, res) => {
     // Save the updated user (this will trigger the pre-save hook for password hashing, but we've already hashed it,
     // so it's safe. Mongoose will recognize `isModified('password')` as true)
     await user.save();
+
+    await Session.deleteMany({ user: user._id });
 
     res
       .status(200)
