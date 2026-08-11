@@ -1,4 +1,7 @@
 const Profession = require("../models/Profession");
+const {
+  upsertRelatedProfileDoc,
+} = require("../services/relatedProfileDocs");
 
 const addProfessionDetails = async (req, res) => {
   try {
@@ -13,64 +16,40 @@ const addProfessionDetails = async (req, res) => {
 const getProfessionDetails = async (req, res) => {
   try {
     const profession = await Profession.findOne({ user: req.params.userId });
-    if (!profession) return res.status(404).json({ message: "Profession details not found" });
+    if (!profession) {
+      return res.status(404).json({ message: "Profession details not found" });
+    }
     res.json(profession);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-
-
-// const updateProfessionDetails = async (req, res) => {
-//   try {
-//     const userId = req.params.userId;
-
-//     // Find and update the profession details
-//     const updatedProfession = await Profession.findOneAndUpdate({ user: userId }, req.body, {
-//       new: true,
-//       runValidators: true
-//     });
-
-//     if (!updatedProfession) return res.status(404).json({ message: "Profession details not found" });
-
-//     res.json({ message: "Profession details updated successfully", profession: updatedProfession });
-//   } catch (error) {
-//     console.error("Error updating profession details:", error);
-//     res.status(500).json({ error: error.message });
-//   }
-// };
-
 const updateProfessionDetails = async (req, res) => {
   try {
-    // Accept either req.params.userId or req.params.id
     const userId = req.params.userId || req.params.id;
-
-    // Find and update the profession details for the given user
-    const updatedProfession = await Profession.findOneAndUpdate(
-      { user: userId },
-      req.body,
-      {
-        new: true,
-        runValidators: true,
-        upsert: true // Ensure no new document is created if one isn't found
-      }
-    );
-
-    if (!updatedProfession) {
-      return res.status(404).json({ message: "Profession details not found" });
-    }
+    const updatedProfession = await upsertRelatedProfileDoc({
+      kind: "profession",
+      userId,
+      body: req.body,
+    });
 
     res.json({
       message: "Profession details updated successfully",
-      profession: updatedProfession
+      profession: updatedProfession,
     });
   } catch (error) {
     console.error("Error updating profession details:", error);
-    res.status(500).json({ error: error.message });
+    const status = error.statusCode || 500;
+    res.status(status).json({
+      message: status === 404 ? error.message : undefined,
+      error: error.message,
+    });
   }
 };
 
-
-
-module.exports = { addProfessionDetails, getProfessionDetails, updateProfessionDetails};
+module.exports = {
+  addProfessionDetails,
+  getProfessionDetails,
+  updateProfessionDetails,
+};

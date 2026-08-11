@@ -25,6 +25,10 @@ const {
   deleteProfilePhotoForUser,
   destroyProfilePhotoAssets,
 } = require("../services/profilePhotoService");
+const {
+  loadRelatedProfileDocs,
+  withAdminStubs,
+} = require("../services/relatedProfileDocs");
 
 const sendProfilePhotoError = (res, error, fallbackMessage) => {
   const statusCode = error instanceof ProfilePhotoError ? error.statusCode : 500;
@@ -852,37 +856,31 @@ const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const user = await User.findById(id)
-      .select("-password") // Exclude password for security
-      .populate("family")
-      .populate("education")
-      .populate("profession")
-      .populate("astrology");
+    const user = await User.findById(id).select("-password");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // ✅ Ensure all nested objects are not undefined
+    // Canonical related docs are keyed by `user` (same as website / upserts).
+    const related = await loadRelatedProfileDocs(id, {
+      userRefIds: {
+        family: user.family,
+        education: user.education,
+        profession: user.profession,
+        astrology: user.astrology,
+        preferences: user.preferences,
+      },
+    });
+    const stubs = withAdminStubs(related);
+
     const completeUser = {
       ...user.toObject(),
-      family: user.family || {
-        family_value: "",
-        family_type: "",
-        mother: {},
-        father: {},
-        siblings: {},
-      },
-      education: user.education || {
-        education_level: "",
-        college_details: { passout_year: "" },
-        school_details: {},
-      },
-      profession: user.profession || {
-        occupation: "",
-        work_address: { address: "", city: "" },
-      },
-      astrology: user.astrology || { rashi_nakshatra: "", gotra: "" },
+      family: stubs.family,
+      education: stubs.education,
+      profession: stubs.profession,
+      astrology: stubs.astrology,
+      preferences: stubs.preferences,
       location: user.location || { address: "", city: "" },
     };
 
