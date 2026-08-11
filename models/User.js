@@ -298,7 +298,6 @@ userSchema.methods.calculateProfileCompletion = function () {
       location: {
         address: this.location?.address,
         city: this.location?.city,
-        pincode: this.location?.pincode,
       },
       profile_pictures: this.profile_pictures, // Array of image URLs
       about_myself: this.about_myself,
@@ -341,14 +340,9 @@ userSchema.methods.calculateProfileCompletion = function () {
           // Ignore user and user_name
           education_level: this.education.education_level,
           education_field: this.education.education_field,
-          school_details: {
-            name: this.education.school_details?.name,
-            city: this.education.school_details?.city,
-          },
           college_details: {
             name: this.education.college_details?.name,
             city: this.education.college_details?.city,
-            passout_year: this.education.college_details?.passout_year,
           },
         }
       : {},

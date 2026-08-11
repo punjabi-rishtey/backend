@@ -12,6 +12,10 @@ const fs = require("fs");
 const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const cloudinary = require("../config/cloudinary");
+const {
+  loadRelatedProfileDocs,
+} = require("../services/relatedProfileDocs");
+
 const Inquiry = require("../models/inquiryModel");
 const Subscription = require("../models/Subscription");
 const Membership = require("../models/Membership");
@@ -643,13 +647,16 @@ const getUserProfile = async (req, res) => {
 
     const requesterIsPrivate = requester?.profile_visibility === "private";
 
-    // Fetch related data using manual queries (for better control)
-    const [family, education, profession, astrology] = await Promise.all([
-      Family.findOne({ user: userId }) || {}, // If not found, return empty object
-      Education.findOne({ user: userId }) || {},
-      Profession.findOne({ user: userId }) || {},
-      Astrology.findOne({ user: userId }) || {},
-    ]);
+    // Canonical related docs are keyed by `user` (same path admin now uses).
+    const related = await loadRelatedProfileDocs(userId, {
+      userRefIds: {
+        family: user.family,
+        education: user.education,
+        profession: user.profession,
+        astrology: user.astrology,
+        preferences: user.preferences,
+      },
+    });
 
     // ✅ Fix Cloudinary image URL formatting (Remove backend URL issues)
     const formatImageUrl = (pic) =>
@@ -674,10 +681,11 @@ const getUserProfile = async (req, res) => {
       ...userObj, // Convert Mongoose document to plain object
       profile_pictures: profilePicturesUrls, // Corrected profile picture URLs
       profile_picture: profilePictureUrl, // Formatted profile picture URL with fallback
-      family_details: family, // Attach family details
-      education_details: education, // Attach education details
-      profession_details: profession, // Attach profession details
-      astrology_details: astrology, // Attach astrology details
+      family_details: related.family || {},
+      education_details: related.education || {},
+      profession_details: related.profession || {},
+      astrology_details: related.astrology || {},
+      preferences: related.preferences || userObj.preferences || null,
       contact_access: requesterIsPrivate ? "admin_intro_required" : "full",
       contact_message: requesterIsPrivate ? PRIVATE_MODE_CONTACT_MESSAGE : "",
     };

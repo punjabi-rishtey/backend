@@ -8,7 +8,9 @@
     "dev": "nodemon index.js",
     "start:cron": "node utils/checkExpiryCron.js",
     "start:qa": "ENV_FILE=.env.qa node index.js",
-    "dev:qa": "ENV_FILE=.env.qa nodemon index.js"
+    "dev:qa": "ENV_FILE=.env.qa nodemon index.js",
+    "audit:profile": "node scripts/auditProfileCanonicality.js",
+    "repair:profile": "node scripts/repairProfileRelatedDocs.js"
   },
   "keywords": [],
   "author": "",
