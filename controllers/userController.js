@@ -12,16 +12,21 @@ const fs = require("fs");
 const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const cloudinary = require("../config/cloudinary");
-const {
-  loadRelatedProfileDocs,
-} = require("../services/relatedProfileDocs");
-
 const Inquiry = require("../models/inquiryModel");
 const Subscription = require("../models/Subscription");
 const Membership = require("../models/Membership");
+const Session = require("../models/Session");
+const {
+  MAX_WEB_SESSIONS,
+  SESSION_LIMIT_CODE,
+  SESSION_LIMIT_MESSAGE,
+} = Session;
 const {
   normalizeAnnualMembershipDurationMonths,
 } = require("../services/membershipPlanPolicy");
+const {
+  loadRelatedProfileDocs,
+} = require("../services/relatedProfileDocs");
 const {
   ProfilePhotoError,
   uploadProfilePhotoFiles,
@@ -527,7 +532,7 @@ const registerUser = async (req, res) => {
 
 const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, clientType } = req.body;
 
     // ✅ Find user by email
     const user = await User.findOne({ email });
@@ -540,8 +545,35 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid Credentials" });
     }
 
-    // ✅ Generate JWT Token
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+    const isWebClient = clientType === "web";
+    let tokenPayload = { id: user._id };
+
+    if (isWebClient) {
+      const activeWebSessions = await Session.countDocuments({
+        user: user._id,
+        clientType: "web",
+      });
+
+      if (activeWebSessions >= MAX_WEB_SESSIONS) {
+        return res.status(403).json({
+          message: SESSION_LIMIT_MESSAGE,
+          code: SESSION_LIMIT_CODE,
+          maxSessions: MAX_WEB_SESSIONS,
+        });
+      }
+
+      const sid = crypto.randomUUID();
+      await Session.create({
+        user: user._id,
+        sid,
+        clientType: "web",
+        lastSeenAt: new Date(),
+      });
+
+      tokenPayload = { id: user._id, sid };
+    }
+
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
       expiresIn: "31d",
     });
     res.json({ token, user });
@@ -984,7 +1016,10 @@ const setProfilePicture = async (req, res) => {
 
 const logoutUser = async (req, res) => {
   try {
-    // ✅ On the client side, the token should be removed from local storage/cookies
+    if (req.user?.sid) {
+      await Session.deleteOne({ sid: req.user.sid, user: req.user.id });
+    }
+
     res.json({ message: "User logged out successfully" });
   } catch (error) {
     console.error("Error logging out:", error);
@@ -1054,6 +1089,8 @@ const resetPassword = async (req, res) => {
     // ✅ Save user without triggering pre-save hook (to avoid double hashing)
     await user.save({ validateBeforeSave: false });
 
+    await Session.deleteMany({ user: user._id });
+
     return res.json({ message: "Password reset successful" }); // Ensure only one response
   } catch (error) {
     console.error("Error resetting password:", error);
@@ -1104,6 +1141,8 @@ const changePassword = async (req, res) => {
     user.resetPasswordExpires = undefined;
 
     await user.save();
+
+    await Session.deleteMany({ user: user._id });
 
     return res.json({
       message: "Password changed successfully. Please log in again.",
@@ -1276,15 +1315,28 @@ const getAllBasicUserDetails = async (req, res) => {
 
 const getProfileCompletion = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id)
-      .populate("family")
-      .populate("education")
-      .populate("profession")
-      .populate("astrology");
+    const user = await User.findById(req.user.id);
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
+
+    const related = await loadRelatedProfileDocs(user._id, {
+      userRefIds: {
+        family: user.family,
+        education: user.education,
+        profession: user.profession,
+        astrology: user.astrology,
+        preferences: user.preferences,
+      },
+      includePreferences: false,
+    });
+
+    // calculateProfileCompletion reads populated-style related docs on `this`
+    user.family = related.family;
+    user.education = related.education;
+    user.profession = related.profession;
+    user.astrology = related.astrology;
 
     const completionPercentage = user.calculateProfileCompletion();
     return res.json({ completionPercentage });
