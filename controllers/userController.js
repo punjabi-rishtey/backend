@@ -13,6 +13,7 @@ const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const cloudinary = require("../config/cloudinary");
 const Inquiry = require("../models/inquiryModel");
+const { evaluateProfileCompletion } = require("../services/profileCompletion");
 const Subscription = require("../models/Subscription");
 const Membership = require("../models/Membership");
 const {
@@ -1278,8 +1279,13 @@ const getProfileCompletion = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const completionPercentage = user.calculateProfileCompletion();
-    return res.json({ completionPercentage });
+    const result = evaluateProfileCompletion(user);
+    return res.json({
+      completionPercentage: result.completionPercentage,
+      readyForMatches: result.readyForMatches,
+      missing: result.missing,
+      message: result.message,
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: "Server error" });

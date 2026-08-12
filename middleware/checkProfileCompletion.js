@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const { evaluateProfileCompletion } = require("../services/profileCompletion");
 
 const checkProfileCompletion = async (req, res, next) => {
   try {
@@ -12,11 +13,14 @@ const checkProfileCompletion = async (req, res, next) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const completion = user.calculateProfileCompletion();
+    const result = evaluateProfileCompletion(user);
 
-    if (completion < 70) {
+    if (!result.readyForMatches) {
       return res.status(403).json({
-        error: "Profile must be at least 70% complete to access this feature."
+        error: result.message,
+        readyForMatches: false,
+        missing: result.missing,
+        completionPercentage: result.completionPercentage,
       });
     }
 
