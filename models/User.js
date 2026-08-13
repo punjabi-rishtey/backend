@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
-const { evaluateProfileCompletion } = require("../services/profileCompletion");
 
 const userSchema = new mongoose.Schema(
   {
@@ -223,12 +222,149 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-userSchema.methods.evaluateProfileCompletion = function () {
-  return evaluateProfileCompletion(this);
-};
+function checkFields(obj) {
+  let filledFields = 0;
+  let totalFields = 0;
+
+  if (obj && typeof obj === "object") {
+    if (Array.isArray(obj)) {
+      totalFields += obj.length;
+      for (const item of obj) {
+        if (item !== null && item !== undefined && item !== "") {
+          filledFields++;
+        }
+      }
+    } else {
+      for (const key in obj) {
+        // For each property, if it's an object, recurse; otherwise count it.
+        if (obj[key] !== null && typeof obj[key] === "object") {
+          const { filledFields: subFilled, totalFields: subTotal } =
+            checkFields(obj[key]);
+          filledFields += subFilled;
+          totalFields += subTotal;
+        } else {
+          totalFields++;
+          if (obj[key] !== null && obj[key] !== undefined && obj[key] !== "") {
+            filledFields++;
+          }
+        }
+      }
+    }
+  } else {
+    // If not an object, count the value itself.
+    totalFields++;
+    if (obj !== null && obj !== undefined && obj !== "") {
+      filledFields++;
+    }
+  }
+
+  return { filledFields, totalFields };
+}
 
 userSchema.methods.calculateProfileCompletion = function () {
-  return evaluateProfileCompletion(this).completionPercentage;
+  // Build an object with only the fields you want to count.
+  // For related documents (family, profession, etc.), use optional chaining (?.) to safely access their fields.
+  const visibleProfile = {
+    user: {
+      name: this.name,
+      gender: this.gender,
+      dob: this.dob,
+      height: this.height,
+      religion: this.religion,
+      caste: this.caste,
+      mobile: this.mobile,
+      email: this.email,
+      marital_status: this.marital_status,
+      mangalik: this.mangalik,
+      language: this.language,
+      hobbies: this.hobbies, // Assuming this is an array
+      birth_details: {
+        birth_time: this.birth_details?.birth_time,
+        birth_place: this.birth_details?.birth_place,
+      },
+      physical_attributes: {
+        skin_tone: this.physical_attributes?.skin_tone,
+        body_type: this.physical_attributes?.body_type,
+        physical_disability: this.physical_attributes?.physical_disability,
+        disability_reason: this.physical_attributes?.disability_reason,
+      },
+      lifestyle: {
+        smoke: this.lifestyle?.smoke,
+        drink: this.lifestyle?.drink,
+        veg_nonveg: this.lifestyle?.veg_nonveg,
+        nri_status: this.lifestyle?.nri_status,
+        abroad_ready: this.lifestyle?.abroad_ready ?? null,
+      },
+      location: {
+        address: this.location?.address,
+        city: this.location?.city,
+        pincode: this.location?.pincode,
+      },
+      profile_pictures: this.profile_pictures, // Array of image URLs
+      about_myself: this.about_myself,
+      looking_for: this.looking_for,
+    },
+    family: this.family
+      ? {
+          // Ignore user and user_name
+          family_value: this.family.family_value,
+          family_type: this.family.family_type,
+          mother: {
+            name: this.family.mother?.name,
+            occupation: this.family.mother?.occupation,
+          },
+          father: {
+            name: this.family.father?.name,
+            occupation: this.family.father?.occupation,
+          },
+          siblings: {
+            brother_count: this.family.siblings?.brother_count,
+            sister_count: this.family.siblings?.sister_count,
+          },
+        }
+      : {},
+    profession: this.profession
+      ? {
+          // Ignore user and user_name
+          occupation: this.profession.occupation,
+          designation: this.profession.designation,
+          working_with: this.profession.working_with,
+          income: this.profession.income,
+          work_address: {
+            address: this.profession.work_address?.address,
+            city: this.profession.work_address?.city,
+          },
+        }
+      : {},
+    education: this.education
+      ? {
+          // Ignore user and user_name
+          education_level: this.education.education_level,
+          education_field: this.education.education_field,
+          school_details: {
+            name: this.education.school_details?.name,
+            city: this.education.school_details?.city,
+          },
+          college_details: {
+            name: this.education.college_details?.name,
+            city: this.education.college_details?.city,
+            passout_year: this.education.college_details?.passout_year,
+          },
+        }
+      : {},
+    astrology: this.astrology
+      ? {
+          // Ignore user and user_name
+          rashi_nakshatra: this.astrology.rashi_nakshatra,
+          gotra: this.astrology.gotra,
+        }
+      : {},
+  };
+
+  // Now use the helper to recursively count filled vs total fields.
+  const { filledFields, totalFields } = checkFields(visibleProfile);
+
+  return totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0;
 };
 
 const User = mongoose.model("User", userSchema);
