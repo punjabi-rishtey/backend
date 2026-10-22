@@ -19,6 +19,7 @@ const {
   getUserById,
   getAllSubscriptions,
   approveSubscriptionPayment,
+  rejectSubscriptionPayment,
   getUserStatus,
   deleteUser,
   restoreUser,
@@ -99,6 +100,11 @@ router.put(
   "/subscriptions/:subscriptionId/approve",
   adminAuth,
   approveSubscriptionPayment
+);
+router.put(
+  "/subscriptions/:subscriptionId/reject",
+  adminAuth,
+  rejectSubscriptionPayment
 );
 
 //Edit page updatea apis:
