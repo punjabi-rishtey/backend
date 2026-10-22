@@ -702,6 +702,33 @@ const approveSubscriptionPayment = async (req, res) => {
   }
 };
 
+const rejectSubscriptionPayment = async (req, res) => {
+  try {
+    const { subscriptionId } = req.params;
+
+    if (!subscriptionId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "Invalid subscription ID format." });
+    }
+
+    const subscription = await Subscription.findById(subscriptionId);
+
+    if (!subscription) {
+      return res.status(404).json({ message: "Payment request not found." });
+    }
+
+    subscription.reviewStatus = "rejected";
+    await subscription.save();
+
+    return res.status(200).json({
+      message: "Payment rejected.",
+      subscription,
+    });
+  } catch (error) {
+    console.error("Error rejecting subscription payment:", error);
+    return res.status(500).json({ message: "Unable to reject payment." });
+  }
+};
+
 const moveUserToPending = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1743,6 +1770,7 @@ module.exports = {
   getUserById,
   getAllSubscriptions,
   approveSubscriptionPayment,
+  rejectSubscriptionPayment,
   getUserStatus,
   deleteUser,
   restoreUser,
