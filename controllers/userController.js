@@ -17,6 +17,7 @@ const Subscription = require("../models/Subscription");
 const Membership = require("../models/Membership");
 const {
   normalizeAnnualMembershipDurationMonths,
+  normalizeAnnualMembershipPrice,
 } = require("../services/membershipPlanPolicy");
 const {
   ProfilePhotoError,
@@ -882,6 +883,13 @@ const updateUserProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    if (updates.status === "Canceled") {
+      await Subscription.updateMany(
+        { user: userId, reviewStatus: "pending" },
+        { reviewStatus: "rejected" }
+      );
+    }
+
     res.json({ message: "Profile updated successfully", user: updatedUser });
   } catch (error) {
     console.error("❌ Error updating profile:", error);
@@ -1345,7 +1353,7 @@ const createSubscription = async (req, res) => {
     }
 
     const membershipTier = await Membership.findById(membershipId).select(
-      "duration price"
+      "name duration price"
     );
 
     if (!membershipTier) {
@@ -1355,6 +1363,13 @@ const createSubscription = async (req, res) => {
     const membershipDurationMonths = normalizeAnnualMembershipDurationMonths(
       membershipTier.duration
     );
+
+    if (
+      !Number.isInteger(membershipDurationMonths) ||
+      membershipDurationMonths <= 0
+    ) {
+      return res.status(400).json({ error: "Membership plan duration is invalid." });
+    }
 
     // 4) Upload file to Cloudinary after text validation has passed.
     const result = await cloudinary.uploader.upload(req.file.path, {
@@ -1374,6 +1389,9 @@ const createSubscription = async (req, res) => {
       phoneNumber: safePhoneNumber,
       screenshotUrl,
       membershipDurationMonths,
+      planName: membershipTier.name,
+      planPrice: normalizeAnnualMembershipPrice(membershipTier.price),
+      reviewStatus: "pending",
       source: "user_payment",
       couponCode: null,
       discountAmount: 0,
