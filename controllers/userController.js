@@ -1049,6 +1049,12 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ message: "Invalid or expired token" });
     }
 
+    if (typeof newPassword !== "string" || newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "New password must be at least 6 characters long." });
+    }
+
     // ✅ Assign new password (let pre-save middleware handle hashing)
     user.password = newPassword;
 
