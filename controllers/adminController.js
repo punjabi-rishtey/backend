@@ -533,12 +533,35 @@ const approveUser = async (req, res) => {
     const fullName = userdetail.name;
     const phoneNumber = userdetail.mobile;
 
-    const expiresAt = calculateExpiryDateFromMonths(start, parsedExpiry);
+    const pendingPayment = await Subscription.findOne({
+      user: id,
+      $or: [
+        { reviewStatus: "pending" },
+        {
+          source: "user_payment",
+          reviewStatus: { $exists: false },
+          membershipDurationMonths: { $gte: 1 },
+          createdAt: { $gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) },
+        },
+      ],
+    }).sort({ createdAt: -1 });
+    const pendingDuration = Number(pendingPayment?.membershipDurationMonths);
+    const durationMonths =
+      Number.isInteger(pendingDuration) && pendingDuration > 0
+        ? pendingDuration
+        : parsedExpiry;
+    const expiresAt = calculateExpiryDateFromMonths(start, durationMonths);
+    const lengthLabel =
+      durationMonths === 18
+        ? "1.5 years"
+        : durationMonths === 12
+          ? "1 year"
+          : `${durationMonths} month${durationMonths === 1 ? "" : "s"}`;
 
-    // Check if subscription exists
-    let subscription = await Subscription.findOne({ user: id });
+    // A submitted Hallmark or Gold payment keeps its own length.
+    let subscription =
+      pendingPayment || (await Subscription.findOne({ user: id }));
     if (!subscription) {
-      // Create subscription document
       subscription = new Subscription({
         user: id,
         fullName,
@@ -546,17 +569,27 @@ const approveUser = async (req, res) => {
         screenshotUrl: ADMIN_MANUAL_PAYMENT_PLACEHOLDER,
         expiresAt,
         createdAt: start,
-        membershipDurationMonths: parsedExpiry,
+        membershipDurationMonths: durationMonths,
         source: "admin_manual",
+        reviewStatus: "approved",
       });
+      await subscription.save();
+    } else if (pendingPayment) {
+      subscription.fullName = fullName;
+      subscription.phoneNumber = phoneNumber;
+      subscription.createdAt = start;
+      subscription.expiresAt = expiresAt;
+      subscription.membershipDurationMonths = durationMonths;
+      subscription.reviewStatus = "approved";
       await subscription.save();
     } else {
       subscription.fullName = fullName;
       subscription.phoneNumber = phoneNumber;
       subscription.createdAt = start;
       subscription.expiresAt = expiresAt;
-      subscription.membershipDurationMonths = parsedExpiry;
+      subscription.membershipDurationMonths = durationMonths;
       subscription.source = "admin_manual";
+      subscription.reviewStatus = "approved";
 
       if (!subscription.screenshotUrl) {
         subscription.screenshotUrl = ADMIN_MANUAL_PAYMENT_PLACEHOLDER;
@@ -577,7 +610,15 @@ const approveUser = async (req, res) => {
     );
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.json({ message: "User approved successfully", user });
+    const planLabel = pendingPayment?.planName
+      ? `${pendingPayment.planName} for ${lengthLabel}`
+      : lengthLabel;
+
+    res.json({
+      message: `User approved successfully for ${planLabel}.`,
+      user,
+      durationMonths,
+    });
   } catch (error) {
     console.error("Error approving user:", error);
     res.status(500).json({
@@ -609,10 +650,13 @@ const approveSubscriptionPayment = async (req, res) => {
       return res.status(404).json({ message: "Linked user not found." });
     }
 
+    const storedDuration = Number(subscription.membershipDurationMonths);
     const durationMonths =
-      Number.isInteger(requestedDuration) && requestedDuration > 0
-        ? requestedDuration
-        : resolveSubscriptionDurationMonths(subscription);
+      Number.isInteger(storedDuration) && storedDuration > 0
+        ? storedDuration
+        : Number.isInteger(requestedDuration) && requestedDuration > 0
+          ? requestedDuration
+          : resolveSubscriptionDurationMonths(subscription);
 
     if (!durationMonths) {
       return res.status(400).json({
@@ -632,6 +676,7 @@ const approveSubscriptionPayment = async (req, res) => {
     subscription.createdAt = approvalStart;
     subscription.expiresAt = expiresAt;
     subscription.membershipDurationMonths = durationMonths;
+    subscription.reviewStatus = "approved";
     subscription.source = inferSubscriptionSource(subscription);
 
     await subscription.save();
@@ -1340,17 +1385,29 @@ const getAllSubscriptions = async (req, res) => {
       let paymentStatus = "pending";
 
       // Check if user exists and is not deleted
+      const subscriptionEndsAt = subscription.expiresAt
+        ? new Date(subscription.expiresAt)
+        : null;
+      const subscriptionHasEnded =
+        subscriptionEndsAt &&
+        !Number.isNaN(subscriptionEndsAt.getTime()) &&
+        subscriptionEndsAt < new Date();
+
       if (!subscription.user || subscription.user.is_deleted) {
         paymentStatus = "rejected";
+      } else if (subscription.reviewStatus === "pending") {
+        paymentStatus = "pending";
+      } else if (subscription.reviewStatus === "rejected") {
+        paymentStatus = "rejected";
+      } else if (subscription.reviewStatus === "approved") {
+        paymentStatus =
+          subscriptionHasEnded || userStatus === "Expired" ? "expired" : "approved";
       } else if (userStatus === "Canceled") {
         paymentStatus = "rejected";
-      } else if (
-        userStatus === "Expired" ||
-        (subscription.expiresAt && new Date(subscription.expiresAt) < new Date())
-      ) {
-        paymentStatus = "expired";
       } else if (userStatus === "Approved") {
-        paymentStatus = "approved";
+        paymentStatus = subscriptionHasEnded ? "expired" : "approved";
+      } else if (userStatus === "Expired" && subscriptionHasEnded) {
+        paymentStatus = "expired";
       }
 
       return {
