@@ -1382,73 +1382,174 @@ const closeInquiry = async (req, res) => {
 
 // Get user status by ID
 
+const PAYMENT_LIST_LIMIT = 100;
+
 const getAllSubscriptions = async (req, res) => {
   try {
-    const allowedStatuses = ["pending", "approved", "rejected", "expired"];
-    const requestedStatus = req.query.status;
+    const allowedStatuses = ["all", "pending", "approved", "rejected", "expired"];
+    const requestedStatus = req.query.status || "all";
 
-    if (requestedStatus && !allowedStatuses.includes(requestedStatus)) {
+    if (!allowedStatuses.includes(requestedStatus)) {
       return res.status(400).json({ message: "Invalid payment status." });
     }
 
-    // Fetch all subscriptions and populate the "user" field with some user info
-    // const subscriptions = await Subscription.find({})
-    //   .populate("user", "name email mobile status")
-    //   .sort({ createdAt: -1 }); // Sort newest first
-    const subscriptions = await Subscription.find({ user: { $ne: null } })
-      .populate("user", "name email mobile status is_deleted")
-      .sort({ createdAt: -1 });
+    const now = new Date();
+    const hasEnded = {
+      $and: [{ $ne: ["$expiresAt", null] }, { $lt: ["$expiresAt", now] }],
+    };
+    const [result] = await Subscription.aggregate([
+      { $match: { user: { $ne: null } } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          pipeline: [
+            {
+              $project: {
+                name: 1,
+                email: 1,
+                mobile: 1,
+                status: 1,
+                is_deleted: 1,
+              },
+            },
+          ],
+          as: "userDoc",
+        },
+      },
+      {
+        $addFields: {
+          user: { $arrayElemAt: ["$userDoc", 0] },
+          source: {
+            $switch: {
+              branches: [
+                {
+                  case: {
+                    $in: ["$source", ["user_payment", "admin_manual", "legacy"]],
+                  },
+                  then: "$source",
+                },
+                {
+                  case: {
+                    $eq: ["$screenshotUrl", ADMIN_MANUAL_PAYMENT_PLACEHOLDER],
+                  },
+                  then: "admin_manual",
+                },
+              ],
+              default: "legacy",
+            },
+          },
+          paymentStatus: {
+            $switch: {
+              branches: [
+                {
+                  case: {
+                    $or: [
+                      { $eq: [{ $ifNull: ["$userDoc", []] }, []] },
+                      {
+                        $eq: [
+                          { $arrayElemAt: ["$userDoc.is_deleted", 0] },
+                          true,
+                        ],
+                      },
+                    ],
+                  },
+                  then: "rejected",
+                },
+                { case: { $eq: ["$reviewStatus", "pending"] }, then: "pending" },
+                {
+                  case: { $eq: ["$reviewStatus", "rejected"] },
+                  then: "rejected",
+                },
+                {
+                  case: { $eq: ["$reviewStatus", "approved"] },
+                  then: {
+                    $cond: [
+                      {
+                        $or: [
+                          hasEnded,
+                          {
+                            $eq: [
+                              { $arrayElemAt: ["$userDoc.status", 0] },
+                              "Expired",
+                            ],
+                          },
+                        ],
+                      },
+                      "expired",
+                      "approved",
+                    ],
+                  },
+                },
+                {
+                  case: {
+                    $eq: [{ $arrayElemAt: ["$userDoc.status", 0] }, "Canceled"],
+                  },
+                  then: "rejected",
+                },
+                {
+                  case: {
+                    $eq: [{ $arrayElemAt: ["$userDoc.status", 0] }, "Approved"],
+                  },
+                  then: { $cond: [hasEnded, "expired", "approved"] },
+                },
+                {
+                  case: {
+                    $and: [
+                      {
+                        $eq: [
+                          { $arrayElemAt: ["$userDoc.status", 0] },
+                          "Expired",
+                        ],
+                      },
+                      hasEnded,
+                    ],
+                  },
+                  then: "expired",
+                },
+              ],
+              default: "pending",
+            },
+          },
+        },
+      },
+      { $match: { source: { $ne: "admin_manual" } } },
+      {
+        $facet: {
+          counts: [{ $group: { _id: "$paymentStatus", count: { $sum: 1 } } }],
+          subscriptions: [
+            ...(requestedStatus === "all"
+              ? []
+              : [{ $match: { paymentStatus: requestedStatus } }]),
+            { $sort: { createdAt: -1, _id: -1 } },
+            { $limit: PAYMENT_LIST_LIMIT },
+            { $project: { userDoc: 0 } },
+          ],
+        },
+      },
+    ]);
 
-    // Map subscriptions to include payment status
-    const subscriptionsWithStatus = subscriptions.map((subscription) => {
-      const userStatus = subscription.user?.status;
-      const source = inferSubscriptionSource(subscription);
-      let paymentStatus = "pending";
-
-      // Check if user exists and is not deleted
-      const subscriptionEndsAt = subscription.expiresAt
-        ? new Date(subscription.expiresAt)
-        : null;
-      const subscriptionHasEnded =
-        subscriptionEndsAt &&
-        !Number.isNaN(subscriptionEndsAt.getTime()) &&
-        subscriptionEndsAt < new Date();
-
-      if (!subscription.user || subscription.user.is_deleted) {
-        paymentStatus = "rejected";
-      } else if (subscription.reviewStatus === "pending") {
-        paymentStatus = "pending";
-      } else if (subscription.reviewStatus === "rejected") {
-        paymentStatus = "rejected";
-      } else if (subscription.reviewStatus === "approved") {
-        paymentStatus =
-          subscriptionHasEnded || userStatus === "Expired" ? "expired" : "approved";
-      } else if (userStatus === "Canceled") {
-        paymentStatus = "rejected";
-      } else if (userStatus === "Approved") {
-        paymentStatus = subscriptionHasEnded ? "expired" : "approved";
-      } else if (userStatus === "Expired" && subscriptionHasEnded) {
-        paymentStatus = "expired";
+    const counts = {
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      expired: 0,
+      total: 0,
+    };
+    for (const row of result?.counts || []) {
+      if (Object.prototype.hasOwnProperty.call(counts, row._id)) {
+        counts[row._id] = row.count;
       }
+      counts.total += row.count;
+    }
 
-      return {
-        ...subscription.toObject(),
-        source,
-        paymentStatus,
-      };
+    return res.json({
+      success: true,
+      subscriptions: result?.subscriptions || [],
+      counts,
+      limit: PAYMENT_LIST_LIMIT,
     });
-
-    const submittedSubscriptions = subscriptionsWithStatus.filter(
-      (subscription) => subscription.source !== "admin_manual"
-    );
-
-    const filteredSubscriptions = requestedStatus
-      ? submittedSubscriptions.filter(
-          (subscription) => subscription.paymentStatus === requestedStatus
-        )
-      : submittedSubscriptions;
-
-    return res.json({ success: true, subscriptions: filteredSubscriptions });
   } catch (error) {
     console.error("Error fetching subscriptions:", error);
     return res
