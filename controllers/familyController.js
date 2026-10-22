@@ -1,8 +1,12 @@
 const Family = require("../models/Family");
+const {
+  ownedProfileBody,
+  rejectUnlessProfileOwner,
+} = require("../utils/profileOwner");
 
 const addFamilyDetails = async (req, res) => {
   try {
-    const family = new Family({ user_id: req.user.id, ...req.body });
+    const family = new Family({ ...ownedProfileBody(req), user: req.user.id });
     await family.save();
     res.status(201).json(family);
   } catch (error) {
@@ -12,6 +16,8 @@ const addFamilyDetails = async (req, res) => {
 
 const getFamilyDetails = async (req, res) => {
   try {
+    if (rejectUnlessProfileOwner(req, res, req.params.userId)) return;
+
     const family = await Family.findOne({ user: req.params.userId }); // ✅ Use `user`, not `user_id`
     
     if (!family) {
@@ -30,11 +36,12 @@ const getFamilyDetails = async (req, res) => {
 const updateFamilyDetails = async (req, res) => {
   try {
     const userId = req.params.userId || req.params.id;
+    if (rejectUnlessProfileOwner(req, res, userId)) return;
 
     // Find and update the family details for the given user
     const updatedFamily = await Family.findOneAndUpdate(
       { user: userId },
-      req.body,
+      ownedProfileBody(req),
       {
         new: true,
         runValidators: true,
