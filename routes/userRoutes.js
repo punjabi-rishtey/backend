@@ -91,7 +91,7 @@ router.get("/profile-completion", protect, getProfileCompletion);
 
 router.post("/subscribe", protect, upload.single("image"), createSubscription);
 
-router.get("/subscription/:id", getUserSubscription);
+router.get("/subscription/:id", protect, getUserSubscription);
 
 router.put("/change-password", protect, changePassword);
 
