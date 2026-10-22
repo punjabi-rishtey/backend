@@ -82,6 +82,7 @@ const messageRoutes = require("./routes/messageRoutes");
 loadEnv();
 
 const app = express();
+app.set("trust proxy", 1);
 
 // ✅ Move CORS Middleware Before Other Middleware
 const exactAllowedOrigins = new Set([
