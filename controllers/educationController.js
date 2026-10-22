@@ -1,8 +1,15 @@
 const Education = require("../models/Education");
+const {
+  ownedProfileBody,
+  rejectUnlessProfileOwner,
+} = require("../utils/profileOwner");
 
 const addEducationDetails = async (req, res) => {
   try {
-    const education = new Education({ user_id: req.user.id, ...req.body });
+    const education = new Education({
+      ...ownedProfileBody(req),
+      user: req.user.id,
+    });
     await education.save();
     res.status(201).json(education);
   } catch (error) {
@@ -12,6 +19,8 @@ const addEducationDetails = async (req, res) => {
 
 const getEducationDetails = async (req, res) => {
   try {
+    if (rejectUnlessProfileOwner(req, res, req.params.userId)) return;
+
     const education = await Education.findOne({ user: req.params.userId });
     if (!education) return res.status(404).json({ message: "Education details not found" });
     res.json(education);
@@ -46,11 +55,12 @@ const getEducationDetails = async (req, res) => {
 const updateEducationDetails = async (req, res) => {
   try {
     const userId = req.params.userId || req.params.id;
+    if (rejectUnlessProfileOwner(req, res, userId)) return;
 
     // Find and update the education details for the given user
     const updatedEducation = await Education.findOneAndUpdate(
       { user: userId },
-      req.body,
+      ownedProfileBody(req),
       {
         new: true,
         runValidators: true,

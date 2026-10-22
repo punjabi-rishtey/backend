@@ -1,8 +1,15 @@
 const Profession = require("../models/Profession");
+const {
+  ownedProfileBody,
+  rejectUnlessProfileOwner,
+} = require("../utils/profileOwner");
 
 const addProfessionDetails = async (req, res) => {
   try {
-    const profession = new Profession({ user_id: req.user.id, ...req.body });
+    const profession = new Profession({
+      ...ownedProfileBody(req),
+      user: req.user.id,
+    });
     await profession.save();
     res.status(201).json(profession);
   } catch (error) {
@@ -12,6 +19,8 @@ const addProfessionDetails = async (req, res) => {
 
 const getProfessionDetails = async (req, res) => {
   try {
+    if (rejectUnlessProfileOwner(req, res, req.params.userId)) return;
+
     const profession = await Profession.findOne({ user: req.params.userId });
     if (!profession) return res.status(404).json({ message: "Profession details not found" });
     res.json(profession);
@@ -45,11 +54,12 @@ const updateProfessionDetails = async (req, res) => {
   try {
     // Accept either req.params.userId or req.params.id
     const userId = req.params.userId || req.params.id;
+    if (rejectUnlessProfileOwner(req, res, userId)) return;
 
     // Find and update the profession details for the given user
     const updatedProfession = await Profession.findOneAndUpdate(
       { user: userId },
-      req.body,
+      ownedProfileBody(req),
       {
         new: true,
         runValidators: true,

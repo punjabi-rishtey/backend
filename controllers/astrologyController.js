@@ -1,8 +1,15 @@
 const Astrology = require("../models/Astrology");
+const {
+  ownedProfileBody,
+  rejectUnlessProfileOwner,
+} = require("../utils/profileOwner");
 
 const addAstrologyDetails = async (req, res) => {
   try {
-    const astrology = new Astrology({ user_id: req.user.id, ...req.body });
+    const astrology = new Astrology({
+      ...ownedProfileBody(req),
+      user: req.user.id,
+    });
     await astrology.save();
     res.status(201).json(astrology);
   } catch (error) {
@@ -12,6 +19,8 @@ const addAstrologyDetails = async (req, res) => {
 
 const getAstrologyDetails = async (req, res) => {
   try {
+    if (rejectUnlessProfileOwner(req, res, req.params.userId)) return;
+
     const astrology = await Astrology.findOne({ user: req.params.userId });
     if (!astrology) return res.status(404).json({ message: "Astrology details not found" });
     res.json(astrology);
@@ -46,11 +55,12 @@ const updateAstrologyDetails = async (req, res) => {
   try {
     // Accept either req.params.userId or req.params.id
     const userId = req.params.userId || req.params.id;
-    
+    if (rejectUnlessProfileOwner(req, res, userId)) return;
+
     // Find and update the astrology details
     const updatedAstrology = await Astrology.findOneAndUpdate(
       { user: userId },
-      req.body,
+      ownedProfileBody(req),
       {
         new: true,
         runValidators: true,
