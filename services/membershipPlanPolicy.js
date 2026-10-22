@@ -22,9 +22,23 @@ const normalizeAnnualMembershipDurationMonths = (duration) => {
   return numericDuration;
 };
 
+const addCalendarMonths = (startDate, months) => {
+  const start = new Date(startDate);
+  const expiresAt = new Date(start);
+  const startDay = start.getDate();
+  expiresAt.setMonth(start.getMonth() + Number(months));
+
+  if (expiresAt.getDate() !== startDay) {
+    expiresAt.setDate(0);
+  }
+
+  return expiresAt;
+};
+
 module.exports = {
   OFFICIAL_ANNUAL_MEMBERSHIP_DURATION_MONTHS,
   OFFICIAL_ANNUAL_MEMBERSHIP_PRICE,
+  addCalendarMonths,
   normalizeAnnualMembershipDurationMonths,
   normalizeAnnualMembershipPrice,
 };

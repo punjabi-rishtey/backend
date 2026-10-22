@@ -17,6 +17,7 @@ const Inquiry = require("../models/inquiryModel");
 const Subscription = require("../models/Subscription");
 const Membership = require("../models/Membership");
 const {
+  addCalendarMonths,
   normalizeAnnualMembershipDurationMonths,
   normalizeAnnualMembershipPrice,
 } = require("../services/membershipPlanPolicy");
@@ -1390,8 +1391,7 @@ const createSubscription = async (req, res) => {
     screenshotUrl = result.secure_url;
 
     const currentDate = new Date();
-    const expiresAt = new Date(currentDate);
-    expiresAt.setMonth(currentDate.getMonth() + membershipDurationMonths);
+    const expiresAt = addCalendarMonths(currentDate, membershipDurationMonths);
 
     // 6) Create subscription document
     const subscription = new Subscription({
