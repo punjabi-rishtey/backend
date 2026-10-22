@@ -6,6 +6,7 @@ const Astrology = require("../models/Astrology");
 const Preference = require("../models/Preference"); // ✅ Added Preference Model
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const { passwordsMatch } = require("../utils/passwordsMatch");
 const path = require("path");
 const validator = require("validator");
 const fs = require("fs");
@@ -528,12 +529,9 @@ const loginUser = async (req, res) => {
 
     // ✅ Find user by email
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User Not Found" });
+    const isMatch = await passwordsMatch(password, user?.password);
 
-    // ✅ Compare entered password with hashed password
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
+    if (!user || !isMatch) {
       return res.status(400).json({ message: "Invalid Credentials" });
     }
 
@@ -1003,7 +1001,9 @@ const forgotPassword = async (req, res) => {
 
     // ✅ Find user by email
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.json({ message: "Password reset email sent" });
+    }
 
     // ✅ Generate reset token
     const resetToken = crypto.randomBytes(20).toString("hex");

@@ -1,5 +1,6 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
+const { passwordsMatch } = require("../utils/passwordsMatch");
 const jwt = require("jsonwebtoken");
 const validator = require("validator");
 const Admin = require("../models/Admin"); // Ensure you have an Admin
@@ -177,13 +178,8 @@ const loginAdmin = async (req, res) => {
 
     // ✅ Find admin by email
     const admin = await Admin.findOne({ email });
-    if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
-    }
-
-    // ✅ Check password
-    const isMatch = await bcrypt.compare(password, admin.password);
-    if (!isMatch) {
+    const isMatch = await passwordsMatch(password, admin?.password);
+    if (!admin || !isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 

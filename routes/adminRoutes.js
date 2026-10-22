@@ -43,13 +43,14 @@ const { updateFamilyDetails } = require("../controllers/familyController");
 const { updateUserProfile } = require("../controllers/userController"); // Adjust the path as needed
 
 const adminAuth = require("../middleware/adminAuthMiddleware"); // ✅ Import middleware
+const { authAttemptLimiter } = require("../middleware/rateLimitMiddleware");
 const profilePhotoUpload = require("../middleware/profilePhotoUploadMiddleware");
 
 const router = express.Router();
 
 router.post("/register", adminAuth, registerAdmin);
 
-router.post("/login", loginAdmin);
+router.post("/login", authAttemptLimiter, loginAdmin);
 
 router.get("/dashboard", adminAuth, getAdminDashboard);
 
