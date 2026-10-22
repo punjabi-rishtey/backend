@@ -574,6 +574,11 @@ const searchMatches = async (req, res) => {
 
 const getUserSubscription = async (req, res) => {
   const userId = req.params.id;
+  const requesterId = String(req.user?.id || req.user?._id || "");
+
+  if (!requesterId || requesterId !== String(userId)) {
+    return res.status(403).json({ message: "Not authorized" });
+  }
 
   try {
     const subscription = await Subscription.findOne({ user: userId });
