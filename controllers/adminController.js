@@ -19,6 +19,7 @@ const Testimonial = require("../models/Testimonial");
 const cloudinary = require("../config/cloudinary");
 const QrCode = require("../models/QRCode");
 const sendEmail = require("../utils/sendEmail");
+const { addCalendarMonths } = require("../services/membershipPlanPolicy");
 const {
   ProfilePhotoError,
   uploadProfilePhotoFiles,
@@ -56,11 +57,8 @@ const getAdminInfo = (req) => ({
 
 const ADMIN_MANUAL_PAYMENT_PLACEHOLDER = "approved by admin";
 
-const calculateExpiryDateFromMonths = (startDate, durationMonths) => {
-  const expiresAt = new Date(startDate);
-  expiresAt.setMonth(expiresAt.getMonth() + durationMonths);
-  return expiresAt;
-};
+const calculateExpiryDateFromMonths = (startDate, durationMonths) =>
+  addCalendarMonths(startDate, durationMonths);
 
 const deriveDurationMonthsFromDates = (startDate, endDate) => {
   const start = new Date(startDate);
