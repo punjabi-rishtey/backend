@@ -1,5 +1,6 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
+const { passwordsMatch } = require("../utils/passwordsMatch");
 const jwt = require("jsonwebtoken");
 const validator = require("validator");
 const Admin = require("../models/Admin"); // Ensure you have an Admin
@@ -19,6 +20,7 @@ const Testimonial = require("../models/Testimonial");
 const cloudinary = require("../config/cloudinary");
 const QrCode = require("../models/QRCode");
 const sendEmail = require("../utils/sendEmail");
+const { addCalendarMonths } = require("../services/membershipPlanPolicy");
 const {
   ProfilePhotoError,
   uploadProfilePhotoFiles,
@@ -30,6 +32,10 @@ const {
   loadRelatedProfileDocs,
   withAdminStubs,
 } = require("../services/relatedProfileDocs");
+const {
+  clearContentFlag,
+  getScreeningSummary,
+} = require("../services/contentModeration");
 
 const sendProfilePhotoError = (res, error, fallbackMessage) => {
   const statusCode = error instanceof ProfilePhotoError ? error.statusCode : 500;
@@ -60,11 +66,8 @@ const getAdminInfo = (req) => ({
 
 const ADMIN_MANUAL_PAYMENT_PLACEHOLDER = "approved by admin";
 
-const calculateExpiryDateFromMonths = (startDate, durationMonths) => {
-  const expiresAt = new Date(startDate);
-  expiresAt.setMonth(expiresAt.getMonth() + durationMonths);
-  return expiresAt;
-};
+const calculateExpiryDateFromMonths = (startDate, durationMonths) =>
+  addCalendarMonths(startDate, durationMonths);
 
 const deriveDurationMonthsFromDates = (startDate, endDate) => {
   const start = new Date(startDate);
@@ -119,7 +122,7 @@ const inferSubscriptionSource = (subscription) => {
   return "legacy";
 };
 
-require("dotenv").config();
+require("../config/loadEnv")();
 
 const registerAdmin = async (req, res) => {
   try {
@@ -182,13 +185,8 @@ const loginAdmin = async (req, res) => {
 
     // ✅ Find admin by email
     const admin = await Admin.findOne({ email });
-    if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
-    }
-
-    // ✅ Check password
-    const isMatch = await bcrypt.compare(password, admin.password);
-    if (!isMatch) {
+    const isMatch = await passwordsMatch(password, admin?.password);
+    if (!admin || !isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
     }
 
@@ -538,12 +536,38 @@ const approveUser = async (req, res) => {
     const fullName = userdetail.name;
     const phoneNumber = userdetail.mobile;
 
-    const expiresAt = calculateExpiryDateFromMonths(start, parsedExpiry);
+    const pendingPayment = await Subscription.findOne({
+      user: id,
+      $or: [
+        { reviewStatus: "pending" },
+        {
+          source: "user_payment",
+          reviewStatus: { $exists: false },
+          membershipDurationMonths: { $gte: 1 },
+          createdAt: { $gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) },
+        },
+      ],
+    }).sort({ createdAt: -1 });
+    const pendingDuration = Number(pendingPayment?.membershipDurationMonths);
+    const durationMonths =
+      Number.isInteger(pendingDuration) && pendingDuration > 0
+        ? pendingDuration
+        : parsedExpiry;
+    const expiresAt = calculateExpiryDateFromMonths(start, durationMonths);
+    const lengthLabel =
+      durationMonths === 18
+        ? "1.5 years"
+        : durationMonths === 12
+          ? "1 year"
+          : `${durationMonths} month${durationMonths === 1 ? "" : "s"}`;
 
-    // Check if subscription exists
-    let subscription = await Subscription.findOne({ user: id });
+    // A submitted Hallmark or Gold payment keeps its own length.
+    let subscription =
+      pendingPayment || (await Subscription.findOne({ user: id }));
+    const inferredPlanName =
+      durationMonths === 18 ? "Hallmark" : durationMonths === 12 ? "Gold" : "";
+
     if (!subscription) {
-      // Create subscription document
       subscription = new Subscription({
         user: id,
         fullName,
@@ -551,17 +575,34 @@ const approveUser = async (req, res) => {
         screenshotUrl: ADMIN_MANUAL_PAYMENT_PLACEHOLDER,
         expiresAt,
         createdAt: start,
-        membershipDurationMonths: parsedExpiry,
+        membershipDurationMonths: durationMonths,
+        planName: inferredPlanName,
         source: "admin_manual",
+        reviewStatus: "approved",
       });
+      await subscription.save();
+    } else if (pendingPayment) {
+      subscription.fullName = fullName;
+      subscription.phoneNumber = phoneNumber;
+      subscription.createdAt = start;
+      subscription.expiresAt = expiresAt;
+      subscription.membershipDurationMonths = durationMonths;
+      if (!subscription.planName && inferredPlanName) {
+        subscription.planName = inferredPlanName;
+      }
+      subscription.reviewStatus = "approved";
       await subscription.save();
     } else {
       subscription.fullName = fullName;
       subscription.phoneNumber = phoneNumber;
       subscription.createdAt = start;
       subscription.expiresAt = expiresAt;
-      subscription.membershipDurationMonths = parsedExpiry;
+      subscription.membershipDurationMonths = durationMonths;
+      if (!subscription.planName && inferredPlanName) {
+        subscription.planName = inferredPlanName;
+      }
       subscription.source = "admin_manual";
+      subscription.reviewStatus = "approved";
 
       if (!subscription.screenshotUrl) {
         subscription.screenshotUrl = ADMIN_MANUAL_PAYMENT_PLACEHOLDER;
@@ -582,7 +623,15 @@ const approveUser = async (req, res) => {
     );
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.json({ message: "User approved successfully", user });
+    const planLabel = pendingPayment?.planName
+      ? `${pendingPayment.planName} for ${lengthLabel}`
+      : lengthLabel;
+
+    res.json({
+      message: `User approved successfully for ${planLabel}.`,
+      user,
+      durationMonths,
+    });
   } catch (error) {
     console.error("Error approving user:", error);
     res.status(500).json({
@@ -614,10 +663,13 @@ const approveSubscriptionPayment = async (req, res) => {
       return res.status(404).json({ message: "Linked user not found." });
     }
 
+    const storedDuration = Number(subscription.membershipDurationMonths);
     const durationMonths =
-      Number.isInteger(requestedDuration) && requestedDuration > 0
-        ? requestedDuration
-        : resolveSubscriptionDurationMonths(subscription);
+      Number.isInteger(storedDuration) && storedDuration > 0
+        ? storedDuration
+        : Number.isInteger(requestedDuration) && requestedDuration > 0
+          ? requestedDuration
+          : resolveSubscriptionDurationMonths(subscription);
 
     if (!durationMonths) {
       return res.status(400).json({
@@ -637,6 +689,7 @@ const approveSubscriptionPayment = async (req, res) => {
     subscription.createdAt = approvalStart;
     subscription.expiresAt = expiresAt;
     subscription.membershipDurationMonths = durationMonths;
+    subscription.reviewStatus = "approved";
     subscription.source = inferSubscriptionSource(subscription);
 
     await subscription.save();
@@ -659,6 +712,33 @@ const approveSubscriptionPayment = async (req, res) => {
   } catch (error) {
     console.error("Error approving subscription payment:", error);
     return res.status(500).json({ message: "Unable to approve payment." });
+  }
+};
+
+const rejectSubscriptionPayment = async (req, res) => {
+  try {
+    const { subscriptionId } = req.params;
+
+    if (!subscriptionId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "Invalid subscription ID format." });
+    }
+
+    const subscription = await Subscription.findById(subscriptionId);
+
+    if (!subscription) {
+      return res.status(404).json({ message: "Payment request not found." });
+    }
+
+    subscription.reviewStatus = "rejected";
+    await subscription.save();
+
+    return res.status(200).json({
+      message: "Payment rejected.",
+      subscription,
+    });
+  } catch (error) {
+    console.error("Error rejecting subscription payment:", error);
+    return res.status(500).json({ message: "Unable to reject payment." });
   }
 };
 
@@ -874,6 +954,10 @@ const getUserById = async (req, res) => {
       },
     });
     const stubs = withAdminStubs(related);
+    const screening = await getScreeningSummary(id);
+    const subscription = await Subscription.findOne({ user: id })
+      .sort({ createdAt: -1 })
+      .select("planName membershipDurationMonths expiresAt reviewStatus source");
 
     const completeUser = {
       ...user.toObject(),
@@ -883,6 +967,21 @@ const getUserById = async (req, res) => {
       astrology: stubs.astrology,
       preferences: stubs.preferences,
       location: user.location || { address: "", city: "" },
+      subscription: subscription
+        ? {
+            planName: subscription.planName || "",
+            membershipDurationMonths: subscription.membershipDurationMonths,
+            expiresAt: subscription.expiresAt,
+            reviewStatus: subscription.reviewStatus,
+            source: subscription.source,
+          }
+        : null,
+      content_screening: {
+        ...(user.content_screening?.toObject?.() ||
+          user.content_screening ||
+          {}),
+        ...screening,
+      },
     };
 
     res.json(completeUser);
@@ -1315,61 +1414,174 @@ const closeInquiry = async (req, res) => {
 
 // Get user status by ID
 
+const PAYMENT_LIST_LIMIT = 100;
+
 const getAllSubscriptions = async (req, res) => {
   try {
-    const allowedStatuses = ["pending", "approved", "rejected", "expired"];
-    const requestedStatus = req.query.status;
+    const allowedStatuses = ["all", "pending", "approved", "rejected", "expired"];
+    const requestedStatus = req.query.status || "all";
 
-    if (requestedStatus && !allowedStatuses.includes(requestedStatus)) {
+    if (!allowedStatuses.includes(requestedStatus)) {
       return res.status(400).json({ message: "Invalid payment status." });
     }
 
-    // Fetch all subscriptions and populate the "user" field with some user info
-    // const subscriptions = await Subscription.find({})
-    //   .populate("user", "name email mobile status")
-    //   .sort({ createdAt: -1 }); // Sort newest first
-    const subscriptions = await Subscription.find({ user: { $ne: null } })
-      .populate("user", "name email mobile status is_deleted")
-      .sort({ createdAt: -1 });
+    const now = new Date();
+    const hasEnded = {
+      $and: [{ $ne: ["$expiresAt", null] }, { $lt: ["$expiresAt", now] }],
+    };
+    const [result] = await Subscription.aggregate([
+      { $match: { user: { $ne: null } } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "user",
+          foreignField: "_id",
+          pipeline: [
+            {
+              $project: {
+                name: 1,
+                email: 1,
+                mobile: 1,
+                status: 1,
+                is_deleted: 1,
+              },
+            },
+          ],
+          as: "userDoc",
+        },
+      },
+      {
+        $addFields: {
+          user: { $arrayElemAt: ["$userDoc", 0] },
+          source: {
+            $switch: {
+              branches: [
+                {
+                  case: {
+                    $in: ["$source", ["user_payment", "admin_manual", "legacy"]],
+                  },
+                  then: "$source",
+                },
+                {
+                  case: {
+                    $eq: ["$screenshotUrl", ADMIN_MANUAL_PAYMENT_PLACEHOLDER],
+                  },
+                  then: "admin_manual",
+                },
+              ],
+              default: "legacy",
+            },
+          },
+          paymentStatus: {
+            $switch: {
+              branches: [
+                {
+                  case: {
+                    $or: [
+                      { $eq: [{ $ifNull: ["$userDoc", []] }, []] },
+                      {
+                        $eq: [
+                          { $arrayElemAt: ["$userDoc.is_deleted", 0] },
+                          true,
+                        ],
+                      },
+                    ],
+                  },
+                  then: "rejected",
+                },
+                { case: { $eq: ["$reviewStatus", "pending"] }, then: "pending" },
+                {
+                  case: { $eq: ["$reviewStatus", "rejected"] },
+                  then: "rejected",
+                },
+                {
+                  case: { $eq: ["$reviewStatus", "approved"] },
+                  then: {
+                    $cond: [
+                      {
+                        $or: [
+                          hasEnded,
+                          {
+                            $eq: [
+                              { $arrayElemAt: ["$userDoc.status", 0] },
+                              "Expired",
+                            ],
+                          },
+                        ],
+                      },
+                      "expired",
+                      "approved",
+                    ],
+                  },
+                },
+                {
+                  case: {
+                    $eq: [{ $arrayElemAt: ["$userDoc.status", 0] }, "Canceled"],
+                  },
+                  then: "rejected",
+                },
+                {
+                  case: {
+                    $eq: [{ $arrayElemAt: ["$userDoc.status", 0] }, "Approved"],
+                  },
+                  then: { $cond: [hasEnded, "expired", "approved"] },
+                },
+                {
+                  case: {
+                    $and: [
+                      {
+                        $eq: [
+                          { $arrayElemAt: ["$userDoc.status", 0] },
+                          "Expired",
+                        ],
+                      },
+                      hasEnded,
+                    ],
+                  },
+                  then: "expired",
+                },
+              ],
+              default: "pending",
+            },
+          },
+        },
+      },
+      { $match: { source: { $ne: "admin_manual" } } },
+      {
+        $facet: {
+          counts: [{ $group: { _id: "$paymentStatus", count: { $sum: 1 } } }],
+          subscriptions: [
+            ...(requestedStatus === "all"
+              ? []
+              : [{ $match: { paymentStatus: requestedStatus } }]),
+            { $sort: { createdAt: -1, _id: -1 } },
+            { $limit: PAYMENT_LIST_LIMIT },
+            { $project: { userDoc: 0 } },
+          ],
+        },
+      },
+    ]);
 
-    // Map subscriptions to include payment status
-    const subscriptionsWithStatus = subscriptions.map((subscription) => {
-      const userStatus = subscription.user?.status;
-      const source = inferSubscriptionSource(subscription);
-      let paymentStatus = "pending";
-
-      // Check if user exists and is not deleted
-      if (!subscription.user || subscription.user.is_deleted) {
-        paymentStatus = "rejected";
-      } else if (userStatus === "Canceled") {
-        paymentStatus = "rejected";
-      } else if (
-        userStatus === "Expired" ||
-        (subscription.expiresAt && new Date(subscription.expiresAt) < new Date())
-      ) {
-        paymentStatus = "expired";
-      } else if (userStatus === "Approved") {
-        paymentStatus = "approved";
+    const counts = {
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      expired: 0,
+      total: 0,
+    };
+    for (const row of result?.counts || []) {
+      if (Object.prototype.hasOwnProperty.call(counts, row._id)) {
+        counts[row._id] = row.count;
       }
+      counts.total += row.count;
+    }
 
-      return {
-        ...subscription.toObject(),
-        source,
-        paymentStatus,
-      };
+    return res.json({
+      success: true,
+      subscriptions: result?.subscriptions || [],
+      counts,
+      limit: PAYMENT_LIST_LIMIT,
     });
-
-    const submittedSubscriptions = subscriptionsWithStatus.filter(
-      (subscription) => subscription.source !== "admin_manual"
-    );
-
-    const filteredSubscriptions = requestedStatus
-      ? submittedSubscriptions.filter(
-          (subscription) => subscription.paymentStatus === requestedStatus
-        )
-      : submittedSubscriptions;
-
-    return res.json({ success: true, subscriptions: filteredSubscriptions });
   } catch (error) {
     console.error("Error fetching subscriptions:", error);
     return res
@@ -1664,6 +1876,23 @@ const getQR = async (req, res) => {
   res.json(record);
 };
 
+const clearUserContentFlag = async (req, res) => {
+  try {
+    const user = await clearContentFlag(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const screening = await getScreeningSummary(req.params.id);
+    res.json({
+      message: "Content watch flag cleared.",
+      content_screening: screening,
+    });
+  } catch (error) {
+    console.error("Error clearing content flag:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   getQR,
   uploadQR,
@@ -1687,9 +1916,11 @@ module.exports = {
   getUserById,
   getAllSubscriptions,
   approveSubscriptionPayment,
+  rejectSubscriptionPayment,
   getUserStatus,
   deleteUser,
   restoreUser,
   uploadUserProfilePictures,
   deleteUserProfilePicture,
+  clearUserContentFlag,
 };
