@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Review = require("../models/Review");
 
 // ✅ Add Review
@@ -92,15 +93,17 @@ const reorderReviews = async (req, res) => {
       return res.status(400).json({ error: "orderedIds array is required" });
     }
 
-    const bulkOps = orderedIds.map((id, index) => ({
-      updateOne: {
-        filter: { _id: id },
-        update: { $set: { order: index + 1 } },
-      },
-    }));
+    const validOps = orderedIds
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id, index) => ({
+        updateOne: {
+          filter: { _id: new mongoose.Types.ObjectId(id) },
+          update: { $set: { order: index + 1 } },
+        },
+      }));
 
-    if (bulkOps.length > 0) {
-      await Review.bulkWrite(bulkOps);
+    if (validOps.length > 0) {
+      await Review.bulkWrite(validOps);
     }
 
     const updatedReviews = await Review.find().sort({ order: 1, created_at: -1 });
