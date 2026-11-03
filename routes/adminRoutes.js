@@ -19,6 +19,7 @@ const {
   getUserById,
   getAllSubscriptions,
   approveSubscriptionPayment,
+  rejectSubscriptionPayment,
   getUserStatus,
   deleteUser,
   restoreUser,
@@ -28,6 +29,7 @@ const {
   uploadUserProfilePictures,
   deleteUserProfilePicture,
   moveUserToPending,
+  clearUserContentFlag,
 } = require("../controllers/adminController");
 const {
   updateAstrologyDetails,
@@ -42,13 +44,14 @@ const { updateFamilyDetails } = require("../controllers/familyController");
 const { updateUserProfile } = require("../controllers/userController"); // Adjust the path as needed
 
 const adminAuth = require("../middleware/adminAuthMiddleware"); // ✅ Import middleware
+const { authAttemptLimiter } = require("../middleware/rateLimitMiddleware");
 const profilePhotoUpload = require("../middleware/profilePhotoUploadMiddleware");
 
 const router = express.Router();
 
 router.post("/register", adminAuth, registerAdmin);
 
-router.post("/login", loginAdmin);
+router.post("/login", authAttemptLimiter, loginAdmin);
 
 router.get("/dashboard", adminAuth, getAdminDashboard);
 
@@ -100,6 +103,11 @@ router.put(
   adminAuth,
   approveSubscriptionPayment
 );
+router.put(
+  "/subscriptions/:subscriptionId/reject",
+  adminAuth,
+  rejectSubscriptionPayment
+);
 
 //Edit page updatea apis:
 router.put("/astrologies/:id", adminAuth, updateAstrologyDetails);
@@ -114,6 +122,12 @@ router.get("/userstatus/:id/status", adminAuth, getUserStatus);
 // Route to delete user by ID
 router.delete("/deleteuser/:id", adminAuth, deleteUser);
 router.put("/restoreuser/:id", adminAuth, restoreUser);
+
+router.put(
+  "/users/:id/content-flag/clear",
+  adminAuth,
+  clearUserContentFlag
+);
 
 // Route to change a user's password by admin
 // /api/admin/auth/change-password/:userId

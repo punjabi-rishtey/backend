@@ -6,12 +6,14 @@ const Astrology = require("../models/Astrology");
 const Preference = require("../models/Preference"); // ✅ Added Preference Model
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const { passwordsMatch } = require("../utils/passwordsMatch");
 const path = require("path");
 const validator = require("validator");
 const fs = require("fs");
 const sendEmail = require("../utils/sendEmail");
 const crypto = require("crypto");
 const cloudinary = require("../config/cloudinary");
+const { saveDemoImageFromPath } = require("../config/demoMedia");
 const Inquiry = require("../models/inquiryModel");
 const Subscription = require("../models/Subscription");
 const Membership = require("../models/Membership");
@@ -22,11 +24,16 @@ const {
   SESSION_LIMIT_MESSAGE,
 } = Session;
 const {
+  addCalendarMonths,
   normalizeAnnualMembershipDurationMonths,
+  normalizeAnnualMembershipPrice,
 } = require("../services/membershipPlanPolicy");
 const {
   loadRelatedProfileDocs,
 } = require("../services/relatedProfileDocs");
+const {
+  screenProfileContent,
+} = require("../services/contentModeration");
 const {
   ProfilePhotoError,
   uploadProfilePhotoFiles,
@@ -536,12 +543,9 @@ const loginUser = async (req, res) => {
 
     // ✅ Find user by email
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User Not Found" });
+    const isMatch = await passwordsMatch(password, user?.password);
 
-    // ✅ Compare entered password with hashed password
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
+    if (!user || !isMatch) {
       return res.status(400).json({ message: "Invalid Credentials" });
     }
 
@@ -609,6 +613,11 @@ const searchMatches = async (req, res) => {
 
 const getUserSubscription = async (req, res) => {
   const userId = req.params.id;
+  const requesterId = String(req.user?.id || req.user?._id || "");
+
+  if (!requesterId || requesterId !== String(userId)) {
+    return res.status(403).json({ message: "Not authorized" });
+  }
 
   try {
     const subscription = await Subscription.findOne({ user: userId });
@@ -749,6 +758,28 @@ const updateUserProfile = async (req, res) => {
       return res
         .status(403)
         .json({ message: "Not authorized to update this profile" });
+    }
+
+    const existingForModeration = await User.findById(userId).select("status");
+    if (!existingForModeration) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const moderation = await screenProfileContent({
+      userId,
+      userStatus: existingForModeration.status,
+      kind: "user",
+      body: req.body,
+      bypass: Boolean(req.admin),
+      source: req.admin ? "admin" : "member",
+    });
+
+    if (!moderation.allowed) {
+      return res.status(422).json({
+        code: moderation.code || "content_rejected",
+        message: moderation.message || "Please revise and try again.",
+        fields: moderation.fields || {},
+      });
     }
 
     // Define allowed fields for update
@@ -922,6 +953,13 @@ const updateUserProfile = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    if (updates.status === "Canceled") {
+      await Subscription.updateMany(
+        { user: userId, reviewStatus: "pending" },
+        { reviewStatus: "rejected" }
+      );
+    }
+
     res.json({ message: "Profile updated successfully", user: updatedUser });
   } catch (error) {
     console.error("❌ Error updating profile:", error);
@@ -1033,7 +1071,9 @@ const forgotPassword = async (req, res) => {
 
     // ✅ Find user by email
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.json({ message: "Password reset email sent" });
+    }
 
     // ✅ Generate reset token
     const resetToken = crypto.randomBytes(20).toString("hex");
@@ -1077,6 +1117,12 @@ const resetPassword = async (req, res) => {
 
     if (!user) {
       return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    if (typeof newPassword !== "string" || newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ message: "New password must be at least 6 characters long." });
     }
 
     // ✅ Assign new password (let pre-save middleware handle hashing)
@@ -1405,7 +1451,7 @@ const createSubscription = async (req, res) => {
     }
 
     const membershipTier = await Membership.findById(membershipId).select(
-      "duration price"
+      "name duration price"
     );
 
     if (!membershipTier) {
@@ -1416,16 +1462,27 @@ const createSubscription = async (req, res) => {
       membershipTier.duration
     );
 
-    // 4) Upload file to Cloudinary after text validation has passed.
-    const result = await cloudinary.uploader.upload(req.file.path, {
-      folder: "subscriptions",
-      transformation: [{ width: 800, crop: "limit" }],
-    });
-    screenshotUrl = result.secure_url;
+    if (
+      !Number.isInteger(membershipDurationMonths) ||
+      membershipDurationMonths <= 0
+    ) {
+      return res.status(400).json({ error: "Membership plan duration is invalid." });
+    }
+
+    // 4) Store the screenshot. Demo mode keeps it on local disk.
+    if (process.env.DEMO_LOCAL_MEDIA === "true") {
+      const saved = saveDemoImageFromPath(req.file.path, req.file.originalname);
+      screenshotUrl = saved.url;
+    } else {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "subscriptions",
+        transformation: [{ width: 800, crop: "limit" }],
+      });
+      screenshotUrl = result.secure_url;
+    }
 
     const currentDate = new Date();
-    const expiresAt = new Date(currentDate);
-    expiresAt.setMonth(currentDate.getMonth() + membershipDurationMonths);
+    const expiresAt = addCalendarMonths(currentDate, membershipDurationMonths);
 
     // 6) Create subscription document
     const subscription = new Subscription({
@@ -1434,6 +1491,9 @@ const createSubscription = async (req, res) => {
       phoneNumber: safePhoneNumber,
       screenshotUrl,
       membershipDurationMonths,
+      planName: membershipTier.name,
+      planPrice: normalizeAnnualMembershipPrice(membershipTier.price),
+      reviewStatus: "pending",
       source: "user_payment",
       couponCode: null,
       discountAmount: 0,
