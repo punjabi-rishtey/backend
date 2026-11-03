@@ -130,6 +130,18 @@ const userSchema = new mongoose.Schema(
       default: "public",
     },
 
+    // Post-approval free-text screening (rules + shadow AI)
+    content_screening: {
+      flagged: { type: Boolean, default: false },
+      flagged_at: { type: Date, default: null },
+      recent_block_at: { type: [Date], default: [] },
+      blocks_24h: { type: Number, default: 0 },
+      blocks_7d: { type: Number, default: 0 },
+      last_block_field: { type: String, default: "" },
+      last_block_reason: { type: String, default: "" },
+      last_block_at: { type: Date, default: null },
+    },
+
     // References to Related Collections
     family: { type: mongoose.Schema.Types.ObjectId, ref: "Family" },
     education: { type: mongoose.Schema.Types.ObjectId, ref: "Education" },

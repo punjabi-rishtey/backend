@@ -19,6 +19,7 @@ const {
   updateEducationDetails 
 } = require("../controllers/educationController");
 const protect = require("../middleware/authMiddleware");
+const { moderatedWriteLimiter } = require("../middleware/rateLimitMiddleware");
 
 const router = express.Router();
 
@@ -121,7 +122,7 @@ router.get("/:userId", protect, getEducationDetails);
  *       404:
  *         description: User not found
  */
-router.put("/:userId", protect, updateEducationDetails);
+router.put("/:userId", protect, moderatedWriteLimiter, updateEducationDetails);
 
 module.exports = router;
 

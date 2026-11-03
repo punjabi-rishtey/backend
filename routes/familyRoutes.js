@@ -5,6 +5,7 @@ const {
   updateFamilyDetails 
 } = require("../controllers/familyController");
 const protect = require("../middleware/authMiddleware");
+const { moderatedWriteLimiter } = require("../middleware/rateLimitMiddleware");
 
 const router = express.Router();
 
@@ -111,7 +112,7 @@ router.get("/:userId", protect, getFamilyDetails);
  *       404:
  *         description: User not found
  */
-router.put("/:userId", protect, updateFamilyDetails);
+router.put("/:userId", protect, moderatedWriteLimiter, updateFamilyDetails);
 
 
 module.exports = router;

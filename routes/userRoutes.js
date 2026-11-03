@@ -25,6 +25,10 @@ const protect = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
 const profilePhotoUpload = require("../middleware/profilePhotoUploadMiddleware");
 const checkProfileCompletion = require("../middleware/checkProfileCompletion");
+const {
+  moderatedWriteLimiter,
+  authAttemptLimiter,
+} = require("../middleware/rateLimitMiddleware");
 
 const router = express.Router();
 
@@ -70,7 +74,7 @@ router.get(
 // Updated register route to handle file uploads
 router.post("/register", profilePhotoUpload.array("profile_pictures", 10), registerUser);
 
-router.post("/login", loginUser);
+router.post("/login", authAttemptLimiter, loginUser);
 
 router.get("/search", protect, requireApprovedMembershipAccess, searchMatches);
 
@@ -91,13 +95,13 @@ router.get("/profile-completion", protect, getProfileCompletion);
 
 router.post("/subscribe", protect, upload.single("image"), createSubscription);
 
-router.get("/subscription/:id", getUserSubscription);
+router.get("/subscription/:id", protect, getUserSubscription);
 
 router.put("/change-password", protect, changePassword);
 
 router.get("/:id", protect, getUserProfile);
 
-router.put("/:id", protect, updateUserProfile);
+router.put("/:id", protect, moderatedWriteLimiter, updateUserProfile);
 
 router.post(
   "/:id/upload",
@@ -112,7 +116,7 @@ router.put("/:id/set-profile-picture", protect, setProfilePicture);
 
 router.post("/logout", protect, logoutUser);
 
-router.post("/forgot-password", forgotPassword);
+router.post("/forgot-password", authAttemptLimiter, forgotPassword);
 
 router.post("/reset-password/:token", resetPassword);
 
