@@ -1,11 +1,19 @@
 const Family = require("../models/Family");
+const User = require("../models/User");
 const {
   upsertRelatedProfileDoc,
 } = require("../services/relatedProfileDocs");
+const {
+  screenProfileContent,
+} = require("../services/contentModeration");
+const {
+  ownedProfileBody,
+  rejectUnlessProfileOwner,
+} = require("../utils/profileOwner");
 
 const addFamilyDetails = async (req, res) => {
   try {
-    const family = new Family({ user_id: req.user.id, ...req.body });
+    const family = new Family({ ...ownedProfileBody(req), user: req.user.id });
     await family.save();
     res.status(201).json(family);
   } catch (error) {
@@ -15,6 +23,8 @@ const addFamilyDetails = async (req, res) => {
 
 const getFamilyDetails = async (req, res) => {
   try {
+    if (rejectUnlessProfileOwner(req, res, req.params.userId)) return;
+
     const family = await Family.findOne({ user: req.params.userId });
 
     if (!family) {
@@ -31,6 +41,29 @@ const getFamilyDetails = async (req, res) => {
 const updateFamilyDetails = async (req, res) => {
   try {
     const userId = req.params.userId || req.params.id;
+    if (rejectUnlessProfileOwner(req, res, userId)) return;
+
+    const owner = await User.findById(userId).select("status");
+    if (!owner) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const moderation = await screenProfileContent({
+      userId,
+      userStatus: owner.status,
+      kind: "family",
+      body: req.body,
+      bypass: Boolean(req.admin),
+      source: req.admin ? "admin" : "member",
+    });
+    if (!moderation.allowed) {
+      return res.status(422).json({
+        code: moderation.code || "content_rejected",
+        message: moderation.message || "Please revise and try again.",
+        fields: moderation.fields || {},
+      });
+    }
+
     const updatedFamily = await upsertRelatedProfileDoc({
       kind: "family",
       userId,
