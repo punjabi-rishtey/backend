@@ -1,6 +1,13 @@
 const nodemailer = require("nodemailer");
 
 const sendEmail = async (to, subject, text) => {
+  if (process.env.DEMO_LOCAL_MEDIA === "true") {
+    const { assertDemoIsolated } = require("../config/demoGuard");
+    assertDemoIsolated();
+    console.log("Demo mode skipped outbound email.");
+    return;
+  }
+
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",

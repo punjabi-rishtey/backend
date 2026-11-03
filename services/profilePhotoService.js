@@ -1,4 +1,10 @@
+const fs = require("fs");
 const cloudinary = require("../config/cloudinary");
+const {
+  deleteLocalDemoUpload,
+  isLocalDemoPublicId,
+  saveDemoImageBuffer,
+} = require("../config/demoMedia");
 
 const MAX_PROFILE_PICTURES = 10;
 const PROFILE_PHOTO_FOLDER = "profile_pictures";
@@ -142,6 +148,18 @@ const uploadProfilePhotoFiles = async (files, source) => {
 
   try {
     for (const file of files || []) {
+      if (process.env.DEMO_LOCAL_MEDIA === "true") {
+        const buffer = file.buffer || fs.readFileSync(file.path);
+        const saved = saveDemoImageBuffer(buffer, file.originalname);
+        uploadedAssets.push({
+          url: saved.url,
+          public_id: saved.public_id,
+          uploaded_at: new Date(),
+          source,
+        });
+        continue;
+      }
+
       const result = await uploadBufferToCloudinary(file);
       uploadedAssets.push({
         url: result.secure_url,
@@ -160,6 +178,10 @@ const uploadProfilePhotoFiles = async (files, source) => {
 const destroyProfilePhotoAsset = async (asset) => {
   const publicId = asset?.public_id || parseCloudinaryPublicId(asset?.url);
   if (!publicId) return null;
+  if (isLocalDemoPublicId(publicId)) {
+    deleteLocalDemoUpload(publicId);
+    return null;
+  }
   return cloudinary.uploader.destroy(publicId);
 };
 
