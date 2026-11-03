@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const upload = require("../middleware/cloudinaryMiddleware");
-const { addReview, getAllReviews, editReview, deleteReview } = require("../controllers/reviewController");
+const { addReview, getAllReviews, editReview, deleteReview, reorderReviews } = require("../controllers/reviewController");
 const adminAuth = require("../middleware/adminAuthMiddleware");
 
 /**
@@ -43,6 +43,31 @@ const adminAuth = require("../middleware/adminAuthMiddleware");
  *         description: Bad request
  */
 router.post("/add", adminAuth, addReview);
+
+/**
+ * @swagger
+ * /api/reviews/reorder:
+ *   put:
+ *     summary: Reorder reviews by passing ordered review IDs
+ *     tags: [Reviews]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               orderedIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *     responses:
+ *       200:
+ *         description: Reviews reordered successfully
+ *       400:
+ *         description: Bad request
+ */
+router.put("/reorder", adminAuth, reorderReviews);
 
 /**
  * @swagger
