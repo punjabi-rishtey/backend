@@ -192,12 +192,16 @@ const loginAdmin = async (req, res) => {
 
     // ✅ Generate JWT Token for Admin
     const token = jwt.sign(
-      { id: admin._id, role: "admin" },
+      { id: admin._id, role: "admin", email: admin.email },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    res.json({ message: "Admin login successful", token });
+    res.json({
+      message: "Admin login successful",
+      token,
+      admin: { id: admin._id, email: admin.email, role: admin.role },
+    });
   } catch (error) {
     console.error("Error logging in admin:", error);
     res.status(500).json({ error: "Server error" });

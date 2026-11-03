@@ -29,6 +29,18 @@ const subscriptionSchema = new mongoose.Schema({
     type: Number,
     default: null,
   },
+  planName: {
+    type: String,
+    default: "",
+  },
+  planPrice: {
+    type: Number,
+    default: null,
+  },
+  reviewStatus: {
+    type: String,
+    enum: ["pending", "approved", "rejected"],
+  },
   source: {
     type: String,
     enum: ["user_payment", "admin_manual", "legacy"],
