@@ -61,9 +61,15 @@
 
 const express = require("express");
 const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
 const connectDB = require("./config/db");
 const swaggerDocs = require("./swagger");
 const loadEnv = require("./config/loadEnv");
+const {
+  assertDemoIsolated,
+  isDemoModeRequested,
+} = require("./config/demoGuard");
 
 // Import Routes
 const userRoutes = require("./routes/userRoutes");
@@ -81,7 +87,22 @@ const messageRoutes = require("./routes/messageRoutes");
 
 loadEnv();
 
+let demoMode = false;
+if (isDemoModeRequested()) {
+  try {
+    const target = assertDemoIsolated();
+    demoMode = true;
+    console.log(
+      `Demo mode: local database ${target.databaseName} on ${target.host}. Cloudinary and email are off.`
+    );
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+}
+
 const app = express();
+app.set("trust proxy", 1);
 
 // ✅ Move CORS Middleware Before Other Middleware
 const exactAllowedOrigins = new Set([
@@ -155,6 +176,15 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions)); // ✅ Handle Preflight Requests
 
 app.use(express.json());
+
+if (demoMode) {
+  const demoAssetRoot = path.join(__dirname, "demo", "assets");
+  const demoUploadRoot = path.join(__dirname, "uploads", "demo");
+  fs.mkdirSync(path.join(__dirname, "uploads"), { recursive: true });
+  fs.mkdirSync(demoUploadRoot, { recursive: true });
+  app.use("/demo-assets", express.static(demoAssetRoot));
+  app.use("/uploads/demo", express.static(demoUploadRoot));
+}
 
 // ✅ Routes
 app.use("/api/users", userRoutes);

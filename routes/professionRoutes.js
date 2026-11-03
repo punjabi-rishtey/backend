@@ -19,6 +19,7 @@ const {
   updateProfessionDetails 
 } = require("../controllers/professionController");
 const protect = require("../middleware/authMiddleware");
+const { moderatedWriteLimiter } = require("../middleware/rateLimitMiddleware");
 
 const router = express.Router();
 
@@ -121,7 +122,7 @@ router.get("/:userId", protect, getProfessionDetails);
  *       404:
  *         description: User not found
  */
-router.put("/:userId", protect, updateProfessionDetails);
+router.put("/:userId", protect, moderatedWriteLimiter, updateProfessionDetails);
 
 module.exports = router;
 
