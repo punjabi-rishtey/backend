@@ -1,4 +1,7 @@
 node_modules
 .env
 .env.qa
+.env.demo
+.demo-runtime/
 uploads/
+scripts/out/
