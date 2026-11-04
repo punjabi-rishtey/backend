@@ -12,14 +12,22 @@ const addReview = async (req, res) => {
         .json({ error: "User Name, message, and ratings are required" });
     }
 
+    const totalReviews = await Review.countDocuments();
+    const maxPosition = totalReviews + 1;
+
     let assignedOrder = Number(order);
     if (isNaN(assignedOrder) || order === undefined || order === null || order === "") {
-      const lastReview = await Review.findOne().sort({ order: -1 });
-      assignedOrder =
-        lastReview && typeof lastReview.order === "number"
-          ? lastReview.order + 1
-          : 1;
+      assignedOrder = maxPosition;
+    } else {
+      // Clamp position between 1 and total + 1
+      assignedOrder = Math.max(1, Math.min(maxPosition, assignedOrder));
     }
+
+    // Shift reviews at or after assignedOrder down by +1 to prevent duplicate orders
+    await Review.updateMany(
+      { order: { $gte: assignedOrder } },
+      { $inc: { order: 1 } }
+    );
 
     const newReview = new Review({
       user_name: user_name.trim(),
@@ -55,6 +63,11 @@ const editReview = async (req, res) => {
     const { id } = req.params;
     const { user_name, message, ratings, order } = req.body;
 
+    const existingReview = await Review.findById(id);
+    if (!existingReview) {
+      return res.status(404).json({ error: "Review not found!" });
+    }
+
     const updatedFields = {};
 
     if (user_name !== undefined) updatedFields.user_name = user_name.trim();
@@ -62,17 +75,33 @@ const editReview = async (req, res) => {
     if (ratings !== undefined && ratings !== null && ratings !== "") {
       updatedFields.ratings = Number(ratings);
     }
+
     if (order !== undefined && order !== null && order !== "") {
-      updatedFields.order = Number(order);
+      const totalReviews = await Review.countDocuments();
+      const targetOrder = Math.max(1, Math.min(totalReviews, Number(order)));
+      const currentOrder = existingReview.order || totalReviews;
+
+      if (targetOrder !== currentOrder) {
+        if (targetOrder < currentOrder) {
+          // Moving up to earlier position (e.g. from 4 to 2): shift items in [2, 3] down (+1)
+          await Review.updateMany(
+            { _id: { $ne: id }, order: { $gte: targetOrder, $lt: currentOrder } },
+            { $inc: { order: 1 } }
+          );
+        } else {
+          // Moving down to later position (e.g. from 2 to 4): shift items in [3, 4] up (-1)
+          await Review.updateMany(
+            { _id: { $ne: id }, order: { $gt: currentOrder, $lte: targetOrder } },
+            { $inc: { order: -1 } }
+          );
+        }
+        updatedFields.order = targetOrder;
+      }
     }
 
     const updatedReview = await Review.findByIdAndUpdate(id, updatedFields, {
       new: true,
     });
-
-    if (!updatedReview) {
-      return res.status(404).json({ error: "Review not found!" });
-    }
 
     res.status(200).json({
       message: "Review updated successfully",
@@ -125,7 +154,17 @@ const deleteReview = async (req, res) => {
     const review = await Review.findById(id);
     if (!review) return res.status(404).json({ error: "Review not found!" });
 
+    const deletedOrder = review.order;
     await Review.findByIdAndDelete(id);
+
+    // Shift reviews after deletedOrder down by -1 to keep sequence contiguous
+    if (typeof deletedOrder === "number" && deletedOrder > 0) {
+      await Review.updateMany(
+        { order: { $gt: deletedOrder } },
+        { $inc: { order: -1 } }
+      );
+    }
+
     res.status(200).json({ message: "Review deleted successfully!" });
   } catch (error) {
     console.error("Error deleting review:", error);
