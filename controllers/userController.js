@@ -1469,14 +1469,23 @@ const createSubscription = async (req, res) => {
       return res.status(400).json({ error: "Membership plan duration is invalid." });
     }
 
-    // 4) Store the screenshot. Demo mode keeps it on local disk.
+    // 4) Store the screenshot. Demo mode keeps it on local disk; production uses Cloudinary.
     if (process.env.DEMO_LOCAL_MEDIA === "true") {
       const saved = saveDemoImageFromPath(req.file.path, req.file.originalname);
       screenshotUrl = saved.url;
     } else {
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: "subscriptions",
-        transformation: [{ width: 800, crop: "limit" }],
+      const result = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "subscriptions",
+            transformation: [{ width: 800, crop: "limit" }],
+          },
+          (error, uploadResult) => {
+            if (error) return reject(error);
+            resolve(uploadResult);
+          }
+        );
+        stream.end(req.file.buffer);
       });
       screenshotUrl = result.secure_url;
     }
@@ -1514,7 +1523,7 @@ const createSubscription = async (req, res) => {
       .status(500)
       .json({ error: "Server error", details: error.message });
   } finally {
-    if (req.file?.path) {
+    if (process.env.DEMO_LOCAL_MEDIA === "true" && req.file?.path) {
       fs.unlink(req.file.path, (error) => {
         if (error) {
           console.error("Error deleting local subscription screenshot:", error.message);
