@@ -1,6 +1,5 @@
-const assert = require("assert");
-const { addReview, editReview, reorderReviews } = require("../controllers/reviewController");
-const Review = require("../models/Review");
+const assert = require("node:assert/strict");
+const { addReview, reorderReviews } = require("../controllers/reviewController");
 
 async function runTests() {
   console.log("Starting reviewController tests...");
