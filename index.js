@@ -70,6 +70,7 @@ const {
   assertDemoIsolated,
   isDemoModeRequested,
 } = require("./config/demoGuard");
+const { assertJwtSecretsConfigured } = require("./config/jwt");
 
 // Import Routes
 const userRoutes = require("./routes/userRoutes");
@@ -86,6 +87,13 @@ const startExpiryCheckCron = require("./utils/checkExpiryCron");
 const messageRoutes = require("./routes/messageRoutes");
 
 loadEnv();
+
+try {
+  assertJwtSecretsConfigured();
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
 
 let demoMode = false;
 if (isDemoModeRequested()) {

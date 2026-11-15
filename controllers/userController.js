@@ -5,6 +5,7 @@ const Profession = require("../models/Profession");
 const Astrology = require("../models/Astrology");
 const Preference = require("../models/Preference"); // ✅ Added Preference Model
 const jwt = require("jsonwebtoken");
+const { memberSignOptions } = require("../config/jwt");
 const bcrypt = require("bcryptjs");
 const { passwordsMatch } = require("../utils/passwordsMatch");
 const path = require("path");
@@ -577,9 +578,11 @@ const loginUser = async (req, res) => {
       tokenPayload = { id: user._id, sid };
     }
 
-    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, {
-      expiresIn: "31d",
-    });
+    const token = jwt.sign(
+      tokenPayload,
+      process.env.JWT_SECRET,
+      memberSignOptions("31d")
+    );
     res.json({ token, user });
   } catch (error) {
     console.error("❌ Error in login:", error);

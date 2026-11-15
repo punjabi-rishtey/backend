@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const Admin = require("../models/Admin");
+const { adminVerifyOptions, getAdminJwtSecret } = require("../config/jwt");
 
 const adminAuth = async (req, res, next) => {
   try {
@@ -8,7 +9,7 @@ const adminAuth = async (req, res, next) => {
     if (!token) return res.status(401).json({ message: "Access denied, no token provided" });
 
     // ✅ Verify Token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, getAdminJwtSecret(), adminVerifyOptions);
     
     // ✅ Find admin user
     const admin = await Admin.findById(decoded.id);

@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const Session = require("../models/Session");
+const { memberVerifyOptions } = require("../config/jwt");
 const {
   SESSION_REVOKED_MESSAGE,
   SESSION_REVOKED_CODE,
@@ -13,7 +14,8 @@ const protect = async (req, res, next) => {
   try {
     const decoded = jwt.verify(
       token.replace("Bearer ", ""),
-      process.env.JWT_SECRET
+      process.env.JWT_SECRET,
+      memberVerifyOptions
     );
 
     if (decoded.sid) {
