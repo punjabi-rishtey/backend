@@ -70,7 +70,10 @@ const {
   assertDemoIsolated,
   isDemoModeRequested,
 } = require("./config/demoGuard");
-const { assertJwtSecretsConfigured } = require("./config/jwt");
+const {
+  assertJwtSecretsConfigured,
+  warnJwtSecretStrength,
+} = require("./config/jwt");
 
 // Import Routes
 const userRoutes = require("./routes/userRoutes");
@@ -90,6 +93,7 @@ loadEnv();
 
 try {
   assertJwtSecretsConfigured();
+  warnJwtSecretStrength();
 } catch (error) {
   console.error(error.message);
   process.exit(1);
