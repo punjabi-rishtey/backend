@@ -115,6 +115,28 @@ const buildMemberDiscoverableUserFilter = (requester) => {
   return query;
 };
 
+const DEFAULT_SEARCH_PAGE = 1;
+const DEFAULT_SEARCH_LIMIT = 20;
+const MAX_SEARCH_LIMIT = 50;
+
+const parsePositiveInt = (value, fallback) => {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const resolveSearchPagination = (page, limit) => {
+  const pageNum = parsePositiveInt(page, DEFAULT_SEARCH_PAGE);
+  const requestedLimit = parsePositiveInt(limit, DEFAULT_SEARCH_LIMIT);
+  const limitNum = Math.min(requestedLimit, MAX_SEARCH_LIMIT);
+  const skip = (pageNum - 1) * limitNum;
+
+  return { page: pageNum, limit: limitNum, skip };
+};
+
 const isDiscoverableMemberProfile = (user) =>
   ["Approved", "Expired"].includes(user?.status) &&
   user?.is_deleted !== true &&
@@ -592,8 +614,17 @@ const loginUser = async (req, res) => {
 
 const searchMatches = async (req, res) => {
   try {
-    const { gender, caste, religion, marital_status, city, minAge, maxAge } =
-      req.query;
+    const {
+      gender,
+      caste,
+      religion,
+      marital_status,
+      city,
+      minAge,
+      maxAge,
+      page,
+      limit,
+    } = req.query;
 
     const query = buildMemberDiscoverableUserFilter(req.membershipUser);
 
@@ -607,8 +638,24 @@ const searchMatches = async (req, res) => {
     if (minAge && maxAge)
       query.age = { $gte: parseInt(minAge), $lte: parseInt(maxAge) };
 
-    const matches = await User.find(query).select("-password"); // Exclude password
-    res.json(matches);
+    const { page: pageNum, limit: limitNum, skip } = resolveSearchPagination(
+      page,
+      limit
+    );
+
+    const [total, matches] = await Promise.all([
+      User.countDocuments(query),
+      User.find(query).select("-password").skip(skip).limit(limitNum),
+    ]);
+
+    const pages = total === 0 ? 0 : Math.ceil(total / limitNum);
+
+    res.json({
+      results: matches,
+      total,
+      page: pageNum,
+      pages,
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
