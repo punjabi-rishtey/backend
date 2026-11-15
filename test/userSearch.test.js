@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const mongoose = require("mongoose");
 const User = require("../models/User");
+const Profession = require("../models/Profession");
 const { searchMatches } = require("../controllers/userController");
 
 const mockRes = () => {
@@ -182,6 +183,118 @@ async function runTests() {
   assert.equal(overlap.length, 0, "consecutive pages must not return overlapping profiles");
   assert.equal(pageOneRes.body.results.length, 20);
   assert.equal(pageTwoRes.body.results.length, 20);
+
+  const supplementalCapture = {};
+  stubUserSearch({
+    total: 3,
+    pageResults: [],
+    onFind: supplementalCapture,
+  });
+
+  await searchMatches(
+    {
+      query: {
+        manglik: "true",
+        nri_status: "false",
+        search: "Kaur",
+      },
+      membershipUser,
+    },
+    mockRes()
+  );
+
+  assert.ok(
+    supplementalCapture.query.mangalik instanceof RegExp,
+    "manglik=true must filter mangalik field"
+  );
+  assert.equal(
+    supplementalCapture.query.mangalik.test("manglik"),
+    true,
+    "manglik filter must match mangalik value"
+  );
+  assert.equal(
+    supplementalCapture.query.mangalik.test("non_manglik"),
+    false
+  );
+  assert.deepEqual(supplementalCapture.query["lifestyle.nri_status"], {
+    $ne: true,
+  });
+  assert.ok(
+    supplementalCapture.query.name instanceof RegExp,
+    "search must apply case-insensitive name filter"
+  );
+  assert.equal(supplementalCapture.query.name.test("Simran Kaur"), true);
+
+  const manglikFalseCapture = {};
+  stubUserSearch({
+    total: 0,
+    pageResults: [],
+    onFind: manglikFalseCapture,
+  });
+  await searchMatches(
+    {
+      query: { manglik: "false" },
+      membershipUser,
+    },
+    mockRes()
+  );
+  assert.deepEqual(manglikFalseCapture.query.mangalik, {
+    $not: /^manglik$/i,
+  });
+
+  const occupationUserId = new mongoose.Types.ObjectId();
+  Profession.find = () => ({
+    distinct() {
+      return Promise.resolve([occupationUserId]);
+    },
+  });
+
+  const occupationCapture = {};
+  stubUserSearch({
+    total: 1,
+    pageResults: [{ _id: occupationUserId, name: "Dev" }],
+    onFind: occupationCapture,
+  });
+
+  await searchMatches(
+    {
+      query: { occupation: "Private Job" },
+      membershipUser,
+    },
+    mockRes()
+  );
+
+  assert.ok(
+    Array.isArray(occupationCapture.query.$and),
+    "occupation must intersect discoverable users with profession matches"
+  );
+  const inClause = occupationCapture.query.$and.find(
+    (clause) => clause._id?.$in
+  );
+  assert.equal(inClause._id.$in.length, 1);
+  assert.equal(String(inClause._id.$in[0]), String(occupationUserId));
+
+  Profession.find = () => ({
+    distinct() {
+      return Promise.resolve([]);
+    },
+  });
+
+  const emptyOccupationRes = mockRes();
+  await searchMatches(
+    {
+      query: { occupation: "Astronaut" },
+      membershipUser,
+    },
+    emptyOccupationRes
+  );
+
+  assert.deepEqual(emptyOccupationRes.body, {
+    results: [],
+    total: 0,
+    page: 1,
+    pages: 0,
+  });
 
   console.log("userSearch tests passed ✅");
 }

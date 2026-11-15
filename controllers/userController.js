@@ -137,6 +137,64 @@ const resolveSearchPagination = (page, limit) => {
   return { page: pageNum, limit: limitNum, skip };
 };
 
+const MANGALIK_IS_MANGLIK = /^manglik$/i;
+
+const applyManglikSearchFilter = (query, manglik) => {
+  if (manglik === undefined || manglik === null || manglik === "") {
+    return;
+  }
+
+  const normalized = String(manglik).trim().toLowerCase();
+  if (normalized === "true") {
+    query.mangalik = MANGALIK_IS_MANGLIK;
+    return;
+  }
+  if (normalized === "false") {
+    query.mangalik = { $not: MANGALIK_IS_MANGLIK };
+  }
+};
+
+const applyNriStatusSearchFilter = (query, nriStatus) => {
+  if (nriStatus === undefined || nriStatus === null || nriStatus === "") {
+    return;
+  }
+
+  const normalized = String(nriStatus).trim().toLowerCase();
+  if (normalized === "true") {
+    query["lifestyle.nri_status"] = true;
+    return;
+  }
+  if (normalized === "false") {
+    query["lifestyle.nri_status"] = { $ne: true };
+  }
+};
+
+const applyNameSearchFilter = (query, search) => {
+  const term = String(search || "").trim();
+  if (!term) {
+    return;
+  }
+
+  query.name = new RegExp(escapeRegExp(term), "i");
+};
+
+const intersectUserIdsOnQuery = (query, userIds) => {
+  if (!userIds || userIds.length === 0) {
+    query._id = { $in: [] };
+    return;
+  }
+
+  const allowed = { $in: userIds };
+  if (!query._id) {
+    query._id = allowed;
+    return;
+  }
+
+  const existing = query._id;
+  delete query._id;
+  query.$and = [...(query.$and || []), { _id: existing }, { _id: allowed }];
+};
+
 const isDiscoverableMemberProfile = (user) =>
   ["Approved", "Expired"].includes(user?.status) &&
   user?.is_deleted !== true &&
@@ -622,6 +680,10 @@ const searchMatches = async (req, res) => {
       city,
       minAge,
       maxAge,
+      manglik,
+      nri_status,
+      occupation,
+      search,
       page,
       limit,
     } = req.query;
@@ -638,10 +700,30 @@ const searchMatches = async (req, res) => {
     if (minAge && maxAge)
       query.age = { $gte: parseInt(minAge), $lte: parseInt(maxAge) };
 
+    applyManglikSearchFilter(query, manglik);
+    applyNriStatusSearchFilter(query, nri_status);
+    applyNameSearchFilter(query, search);
+
+    if (occupation) {
+      const professionUserIds = await Profession.find({ occupation }).distinct(
+        "user"
+      );
+      intersectUserIdsOnQuery(query, professionUserIds);
+    }
+
     const { page: pageNum, limit: limitNum, skip } = resolveSearchPagination(
       page,
       limit
     );
+
+    if (query._id?.$in && query._id.$in.length === 0) {
+      return res.json({
+        results: [],
+        total: 0,
+        page: pageNum,
+        pages: 0,
+      });
+    }
 
     const [total, matches] = await Promise.all([
       User.countDocuments(query),
