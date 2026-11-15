@@ -2,6 +2,7 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const { passwordsMatch } = require("../utils/passwordsMatch");
 const jwt = require("jsonwebtoken");
+const { adminSignOptions, getAdminJwtSecret } = require("../config/jwt");
 const validator = require("validator");
 const Admin = require("../models/Admin"); // Ensure you have an Admin
 const User = require("../models/User");
@@ -193,8 +194,8 @@ const loginAdmin = async (req, res) => {
     // ✅ Generate JWT Token for Admin
     const token = jwt.sign(
       { id: admin._id, role: "admin", email: admin.email },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      getAdminJwtSecret(),
+      adminSignOptions("7d")
     );
 
     res.json({
