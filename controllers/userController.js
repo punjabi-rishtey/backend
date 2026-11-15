@@ -645,7 +645,11 @@ const searchMatches = async (req, res) => {
 
     const [total, matches] = await Promise.all([
       User.countDocuments(query),
-      User.find(query).select("-password").skip(skip).limit(limitNum),
+      User.find(query)
+        .select("-password")
+        .sort({ _id: 1 })
+        .skip(skip)
+        .limit(limitNum),
     ]);
 
     const pages = total === 0 ? 0 : Math.ceil(total / limitNum);

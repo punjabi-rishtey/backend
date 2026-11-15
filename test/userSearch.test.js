@@ -45,6 +45,10 @@ const stubUserSearch = ({ total, pageResults, onFind }) => {
         onFind.select = selection;
         return chain;
       },
+      sort(value) {
+        onFind.sort = value;
+        return chain;
+      },
       skip(value) {
         onFind.skip = value;
         return chain;
@@ -55,6 +59,39 @@ const stubUserSearch = ({ total, pageResults, onFind }) => {
       },
       then(resolve, reject) {
         return Promise.resolve(pageResults).then(resolve, reject);
+      },
+    };
+    return chain;
+  };
+};
+
+const stubUserSearchPaginated = (allProfiles) => {
+  const sorted = [...allProfiles].sort((left, right) =>
+    String(left._id).localeCompare(String(right._id))
+  );
+
+  User.countDocuments = async () => sorted.length;
+
+  User.find = () => {
+    const chain = {
+      select() {
+        return chain;
+      },
+      sort() {
+        return chain;
+      },
+      skip(value) {
+        chain.skip = value;
+        return chain;
+      },
+      limit(value) {
+        chain.limit = value;
+        return chain;
+      },
+      then(resolve, reject) {
+        const start = chain.skip || 0;
+        const end = start + (chain.limit || 0);
+        return Promise.resolve(sorted.slice(start, end)).then(resolve, reject);
       },
     };
     return chain;
@@ -90,6 +127,7 @@ async function runTests() {
   assert.equal(defaultRes.body.results.length, 20);
   assert.equal(findCapture.limit, 20, "missing limit must use default page size");
   assert.equal(findCapture.skip, 0);
+  assert.deepEqual(findCapture.sort, { _id: 1 }, "search must use stable _id sort");
   assert.equal(findCapture.select, "-password");
   assert.equal(findCapture.query.religion, "Sikh");
   assert.ok(findCapture.query.gender, "discoverable gender filter must remain");
@@ -115,6 +153,35 @@ async function runTests() {
   assert.equal(cappedCapture.limit, 50, "limit must be capped at 50");
   assert.equal(cappedCapture.skip, 50);
   assert.equal(cappedRes.body.results.length, 50);
+
+  stubUserSearchPaginated(manyProfiles);
+
+  const pageOneRes = mockRes();
+  await searchMatches(
+    {
+      query: { page: "1", limit: "20" },
+      membershipUser,
+    },
+    pageOneRes
+  );
+
+  const pageTwoRes = mockRes();
+  await searchMatches(
+    {
+      query: { page: "2", limit: "20" },
+      membershipUser,
+    },
+    pageTwoRes
+  );
+
+  const pageOneIds = new Set(
+    pageOneRes.body.results.map((profile) => String(profile._id))
+  );
+  const pageTwoIds = pageTwoRes.body.results.map((profile) => String(profile._id));
+  const overlap = pageTwoIds.filter((id) => pageOneIds.has(id));
+  assert.equal(overlap.length, 0, "consecutive pages must not return overlapping profiles");
+  assert.equal(pageOneRes.body.results.length, 20);
+  assert.equal(pageTwoRes.body.results.length, 20);
 
   console.log("userSearch tests passed ✅");
 }
