@@ -375,6 +375,7 @@ userSchema.methods.calculateProfileCompletion = function () {
 
 userSchema.index({ "metadata.register_date": -1, _id: 1 });
 userSchema.index({ name: 1, _id: 1 });
+userSchema.index({ name: -1, _id: 1 });
 
 const User = mongoose.model("User", userSchema);
 module.exports = User;
