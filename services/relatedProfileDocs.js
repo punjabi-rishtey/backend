@@ -175,6 +175,50 @@ async function syncUserRelatedRef(userId, userRefField, relatedDocId) {
 }
 
 /**
+ * Upsert the canonical Preference doc for a user and keep User.preferences in sync.
+ */
+async function upsertUserPreferences(userId, { preference1, preference2, preference3 }) {
+  const owner = await User.findById(userId).select("name");
+  if (!owner) {
+    const error = new Error("User not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const existingDocs = await Preference.find({ user: userId }).exec();
+  const canonical = pickCanonicalDoc(existingDocs);
+
+  const update = {
+    user: userId,
+    preference1,
+    preference2,
+    preference3,
+  };
+
+  let saved;
+  if (canonical) {
+    saved = await Preference.findByIdAndUpdate(canonical._id, update, {
+      new: true,
+      runValidators: true,
+    });
+  } else {
+    saved = await Preference.create(update);
+  }
+
+  if (existingDocs.length > 1 && canonical) {
+    const extras = existingDocs.filter(
+      (doc) => idString(doc._id) !== idString(canonical._id)
+    );
+    if (extras.length > 0) {
+      await Preference.deleteMany({ _id: { $in: extras.map((d) => d._id) } });
+    }
+  }
+
+  await syncUserRelatedRef(userId, "preferences", saved._id);
+  return saved;
+}
+
+/**
  * Upsert a related profile doc by user id, ensure user/user_name on insert,
  * and keep the matching User.<ref> ObjectId in sync.
  */
@@ -239,5 +283,6 @@ module.exports = {
   loadRelatedProfileDocs,
   syncUserRelatedRef,
   upsertRelatedProfileDoc,
+  upsertUserPreferences,
   withAdminStubs,
 };

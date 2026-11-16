@@ -18,6 +18,7 @@ const {
   createSubscription,
   getUserSubscription,
   deleteAccount,
+  updateUserPreferences,
 } = require("../controllers/userController");
 
 const protect = require("../middleware/authMiddleware");
@@ -67,6 +68,8 @@ router.post("/subscribe", protect, upload.single("image"), createSubscription);
 router.get("/subscription/:id", protect, getUserSubscription);
 
 router.put("/change-password", protect, changePassword);
+
+router.put("/:id/preferences", protect, moderatedWriteLimiter, updateUserPreferences);
 
 router.get("/:id", protect, getUserProfile);
 

@@ -40,7 +40,9 @@ const {
 const {
   loadRelatedProfileDocs,
   withAdminStubs,
+  upsertUserPreferences,
 } = require("../services/relatedProfileDocs");
+const { validatePartnerPreferenceBody } = require("../services/partnerPreferenceOptions");
 const {
   clearContentFlag,
   getScreeningSummary,
@@ -870,6 +872,38 @@ const blockUser = async (req, res) => {
   }
 };
 
+const updateUserPreferencesByAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const validated = validatePartnerPreferenceBody(req.body);
+    if (!validated.ok) {
+      return res.status(400).json({ message: validated.message });
+    }
+
+    const saved = await upsertUserPreferences(id, {
+      preference1: validated.preference1,
+      preference2: validated.preference2,
+      preference3: validated.preference3,
+    });
+
+    res.json({
+      message: "Partner preferences updated successfully",
+      preferences: {
+        preference1: saved.preference1,
+        preference2: saved.preference2,
+        preference3: saved.preference3,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating user preferences (admin):", error);
+    const status = error.statusCode || 500;
+    res.status(status).json({
+      message: status === 404 ? error.message : "Server error",
+      error: error.message,
+    });
+  }
+};
+
 const editUser = async (req, res) => {
   try {
     const { id } = req.params; // Extracting user ID from request params
@@ -878,6 +912,13 @@ const editUser = async (req, res) => {
     delete updates.profile_pictures;
     delete updates.profile_picture;
     delete updates.profile_picture_assets;
+
+    if (Object.prototype.hasOwnProperty.call(updates, "preferences")) {
+      delete updates.preferences;
+    }
+    delete updates.preference1;
+    delete updates.preference2;
+    delete updates.preference3;
 
     if (Object.prototype.hasOwnProperty.call(updates, "profile_visibility")) {
       const visibility = String(updates.profile_visibility || "")
@@ -1150,14 +1191,9 @@ const addUserFromAdmin = async (req, res) => {
         .json({ message: "Password must be at least 6 characters." });
     }
 
-    if (
-      !preferences.preference1 ||
-      !preferences.preference2 ||
-      !preferences.preference3
-    ) {
-      return res
-        .status(400)
-        .json({ message: "All three preferences must be selected." });
+    const preferenceValidation = validatePartnerPreferenceBody(preferences);
+    if (!preferenceValidation.ok) {
+      return res.status(400).json({ message: preferenceValidation.message });
     }
 
     // ✅ Check if user already exists
@@ -1213,9 +1249,9 @@ const addUserFromAdmin = async (req, res) => {
     // ✅ Save Preferences
     const preferenceDoc = await Preference.create({
       user: newUser._id,
-      preference1: preferences.preference1,
-      preference2: preferences.preference2,
-      preference3: preferences.preference3,
+      preference1: preferenceValidation.preference1,
+      preference2: preferenceValidation.preference2,
+      preference3: preferenceValidation.preference3,
     });
 
     // ✅ Link Preferences to User
@@ -1969,6 +2005,7 @@ module.exports = {
   moveUserToPending,
   blockUser,
   editUser,
+  updateUserPreferencesByAdmin,
   addUserFromAdmin,
   getUserRegistrationsPerMonth,
   getUserStatusCounts,
