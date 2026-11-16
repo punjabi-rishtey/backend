@@ -1,19 +1,33 @@
+# Pings the Render free-tier backend so it does not spin down from idle (15 min without traffic).
+# Merging any change to this file on main re-enables the schedule if GitHub disabled it for repo inactivity.
 name: Keep Render Alive
 
 on:
   schedule:
+    # Every 10 minutes (UTC). GitHub may delay scheduled runs; see PR notes.
     - cron: "*/10 * * * *"
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-render-alive
+  cancel-in-progress: false
+
+env:
+  BACKEND_HEALTH_URL: https://backend-nm1z.onrender.com/health
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Ping health endpoint
         run: |
           for attempt in 1 2 3; do
             if curl -fsS --retry 2 --retry-delay 5 --max-time 90 \
-              https://backend-nm1z.onrender.com/health; then
+              "${BACKEND_HEALTH_URL}"; then
               echo
               echo "Health check succeeded on attempt ${attempt}."
               exit 0
