@@ -238,9 +238,27 @@ async function runTests() {
     },
     mockRes()
   );
-  assert.deepEqual(manglikFalseCapture.query.mangalik, {
-    $not: /^manglik$/i,
+  assert.deepEqual(manglikFalseCapture.query.mangalik, /^non_manglik$/i);
+
+  const partialCapture = {};
+  stubUserSearch({
+    total: 1,
+    pageResults: [],
+    onFind: partialCapture,
   });
+  await searchMatches(
+    {
+      query: { manglik: "partial_manglik" },
+      membershipUser,
+    },
+    mockRes()
+  );
+  assert.ok(
+    partialCapture.query.mangalik instanceof RegExp,
+    "partial_manglik must filter mangalik field"
+  );
+  assert.equal(partialCapture.query.mangalik.test("partial_manglik"), true);
+  assert.equal(partialCapture.query.mangalik.test("manglik"), false);
 
   const occupationUserId = new mongoose.Types.ObjectId();
   Profession.find = () => ({

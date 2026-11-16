@@ -138,6 +138,8 @@ const resolveSearchPagination = (page, limit) => {
 };
 
 const MANGALIK_IS_MANGLIK = /^manglik$/i;
+const MANGALIK_IS_PARTIAL = /^partial_manglik$/i;
+const MANGALIK_IS_NON = /^non_manglik$/i;
 
 const applyManglikSearchFilter = (query, manglik) => {
   if (manglik === undefined || manglik === null || manglik === "") {
@@ -145,12 +147,20 @@ const applyManglikSearchFilter = (query, manglik) => {
   }
 
   const normalized = String(manglik).trim().toLowerCase();
-  if (normalized === "true") {
+  if (normalized === "true" || normalized === "manglik") {
     query.mangalik = MANGALIK_IS_MANGLIK;
     return;
   }
-  if (normalized === "false") {
-    query.mangalik = { $not: MANGALIK_IS_MANGLIK };
+  if (
+    normalized === "partial_manglik" ||
+    normalized === "partial_mangalik" ||
+    normalized === "partial"
+  ) {
+    query.mangalik = MANGALIK_IS_PARTIAL;
+    return;
+  }
+  if (normalized === "false" || normalized === "non_manglik") {
+    query.mangalik = MANGALIK_IS_NON;
   }
 };
 
