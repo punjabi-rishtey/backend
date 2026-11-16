@@ -314,6 +314,49 @@ async function runTests() {
     pages: 0,
   });
 
+  const sortCases = [
+    { param: "newest", expected: { "metadata.register_date": -1, _id: 1 } },
+    { param: "name_asc", expected: { name: 1, _id: 1 } },
+    { param: "name_desc", expected: { name: -1, _id: 1 } },
+  ];
+
+  for (const { param, expected } of sortCases) {
+    const sortCapture = {};
+    stubUserSearch({
+      total: 1,
+      pageResults: [{ _id: new mongoose.Types.ObjectId(), name: "Test" }],
+      onFind: sortCapture,
+    });
+
+    const sortRes = mockRes();
+    await searchMatches(
+      {
+        query: { sort: param },
+        membershipUser,
+      },
+      sortRes
+    );
+
+    assert.equal(sortRes.statusCode, 200);
+    assert.deepEqual(
+      sortCapture.sort,
+      expected,
+      `sort=${param} must map to expected Mongo sort with _id tie-breaker`
+    );
+  }
+
+  const invalidSortRes = mockRes();
+  await searchMatches(
+    {
+      query: { sort: "random" },
+      membershipUser,
+    },
+    invalidSortRes
+  );
+  assert.equal(invalidSortRes.statusCode, 400);
+  assert.match(invalidSortRes.body.message, /Invalid sort/);
+  assert.match(invalidSortRes.body.message, /newest/);
+
   console.log("userSearch tests passed ✅");
 }
 
