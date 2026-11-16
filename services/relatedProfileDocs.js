@@ -185,9 +185,6 @@ async function upsertUserPreferences(userId, { preference1, preference2, prefere
     throw error;
   }
 
-  const existingDocs = await Preference.find({ user: userId }).exec();
-  const canonical = pickCanonicalDoc(existingDocs);
-
   const update = {
     user: userId,
     preference1,
@@ -195,19 +192,17 @@ async function upsertUserPreferences(userId, { preference1, preference2, prefere
     preference3,
   };
 
-  let saved;
-  if (canonical) {
-    saved = await Preference.findByIdAndUpdate(canonical._id, update, {
-      new: true,
-      runValidators: true,
-    });
-  } else {
-    saved = await Preference.create(update);
-  }
+  const saved = await Preference.findOneAndUpdate({ user: userId }, update, {
+    new: true,
+    runValidators: true,
+    upsert: true,
+    setDefaultsOnInsert: true,
+  });
 
-  if (existingDocs.length > 1 && canonical) {
-    const extras = existingDocs.filter(
-      (doc) => idString(doc._id) !== idString(canonical._id)
+  const allForUser = await Preference.find({ user: userId }).exec();
+  if (allForUser.length > 1) {
+    const extras = allForUser.filter(
+      (doc) => idString(doc._id) !== idString(saved._id)
     );
     if (extras.length > 0) {
       await Preference.deleteMany({ _id: { $in: extras.map((d) => d._id) } });

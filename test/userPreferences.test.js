@@ -75,41 +75,36 @@ async function callUpdatePreferences({ userId, body, token }) {
 }
 
 async function runControllerTests() {
-  const storedDocs = new Map();
-  let createCount = 0;
+  const storedDocsByUser = new Map();
+  let upsertInsertCount = 0;
 
   const originalFind = Preference.find;
-  const originalFindByIdAndUpdate = Preference.findByIdAndUpdate;
-  const originalCreate = Preference.create;
+  const originalFindOneAndUpdate = Preference.findOneAndUpdate;
   const originalDeleteMany = Preference.deleteMany;
   const originalUserFindById = User.findById;
 
-  Preference.find = () => ({
-    exec: async () => Array.from(storedDocs.values()),
+  Preference.find = (query) => ({
+    exec: async () => {
+      const userId = String(query?.user || "");
+      const doc = storedDocsByUser.get(userId);
+      return doc ? [doc] : [];
+    },
   });
 
-  Preference.findByIdAndUpdate = async (id, update) => {
+  Preference.findOneAndUpdate = async (filter, update) => {
+    const userId = String(filter?.user || "");
+    const existing = storedDocsByUser.get(userId);
+    if (!existing) {
+      upsertInsertCount += 1;
+    }
     const doc = {
-      _id: id,
+      _id: existing?._id || new mongoose.Types.ObjectId(),
       ...update,
       toObject() {
         return { ...this };
       },
     };
-    storedDocs.set(String(id), doc);
-    return doc;
-  };
-
-  Preference.create = async (data) => {
-    createCount += 1;
-    const doc = {
-      _id: new mongoose.Types.ObjectId(),
-      ...data,
-      toObject() {
-        return { ...this };
-      },
-    };
-    storedDocs.set(String(doc._id), doc);
+    storedDocsByUser.set(userId, doc);
     return doc;
   };
 
@@ -154,7 +149,7 @@ async function runControllerTests() {
     });
     assert.strictEqual(firstSave.status, 200);
     assert.strictEqual(firstSave.payload.preference1, validValues[0]);
-    assert.strictEqual(createCount, 1);
+    assert.strictEqual(upsertInsertCount, 1);
 
     const secondSave = await callUpdatePreferences({
       userId: userA,
@@ -167,14 +162,17 @@ async function runControllerTests() {
     });
     assert.strictEqual(secondSave.status, 200);
     assert.strictEqual(secondSave.payload.preference1, "caste_no_bar");
-    assert.strictEqual(createCount, 1, "second save should update, not create");
+    assert.strictEqual(
+      upsertInsertCount,
+      1,
+      "second save should update, not create"
+    );
   } finally {
     Preference.find = originalFind;
-    Preference.findByIdAndUpdate = originalFindByIdAndUpdate;
-    Preference.create = originalCreate;
+    Preference.findOneAndUpdate = originalFindOneAndUpdate;
     Preference.deleteMany = originalDeleteMany;
     User.findById = originalUserFindById;
-    storedDocs.clear();
+    storedDocsByUser.clear();
   }
 }
 
