@@ -1,6 +1,30 @@
 const OFFICIAL_ANNUAL_MEMBERSHIP_PRICE = 2000;
 const OFFICIAL_ANNUAL_MEMBERSHIP_DURATION_MONTHS = 12;
 const LEGACY_ANNUAL_DURATION_DAYS = 365;
+const LIFETIME_PLAN_NAME = "Lifetime";
+const LIFETIME_PLAN_PRICE = 5000;
+
+const LIFETIME_DOWNGRADE_MESSAGE =
+  "This member already has lifetime membership. Gold and Hallmark cannot replace lifetime access.";
+
+const parseIsLifetimeFlag = (value) =>
+  value === true || value === "true" || value === 1 || value === "1";
+
+const isLifetimeMembershipRecord = (record) => {
+  if (!record) {
+    return false;
+  }
+
+  if (parseIsLifetimeFlag(record.isLifetime)) {
+    return true;
+  }
+
+  return (
+    String(record.name || record.planName || "")
+      .trim()
+      .toLowerCase() === LIFETIME_PLAN_NAME.toLowerCase()
+  );
+};
 
 const normalizeAnnualMembershipPrice = (price) => {
   const numericPrice = Number(price);
@@ -38,7 +62,12 @@ const addCalendarMonths = (startDate, months) => {
 module.exports = {
   OFFICIAL_ANNUAL_MEMBERSHIP_DURATION_MONTHS,
   OFFICIAL_ANNUAL_MEMBERSHIP_PRICE,
+  LIFETIME_PLAN_NAME,
+  LIFETIME_PLAN_PRICE,
+  LIFETIME_DOWNGRADE_MESSAGE,
   addCalendarMonths,
+  isLifetimeMembershipRecord,
   normalizeAnnualMembershipDurationMonths,
   normalizeAnnualMembershipPrice,
+  parseIsLifetimeFlag,
 };

@@ -21,7 +21,17 @@ const Testimonial = require("../models/Testimonial");
 const cloudinary = require("../config/cloudinary");
 const QrCode = require("../models/QRCode");
 const sendEmail = require("../utils/sendEmail");
-const { addCalendarMonths } = require("../services/membershipPlanPolicy");
+const {
+  addCalendarMonths,
+  isLifetimeMembershipRecord,
+  LIFETIME_PLAN_NAME,
+  LIFETIME_PLAN_PRICE,
+} = require("../services/membershipPlanPolicy");
+const {
+  getLatestApprovedSubscription,
+  userHasLifetimeAccess,
+  rejectLifetimeDowngrade,
+} = require("../services/membershipAccess");
 const {
   ProfilePhotoError,
   uploadProfilePhotoFiles,
@@ -518,14 +528,6 @@ const approveUser = async (req, res) => {
     const { id } = req.params;
     const { expiry, startDate } = req.query;
 
-    // Validate and parse expiry
-    const parsedExpiry = Number(expiry);
-    if (isNaN(parsedExpiry) || parsedExpiry <= 0) {
-      return res
-        .status(400)
-        .json({ message: "Invalid expiry value. Must be a positive number." });
-    }
-
     // Validate startDate
     const start = new Date(startDate);
     if (isNaN(start.getTime())) {
@@ -541,6 +543,9 @@ const approveUser = async (req, res) => {
     const fullName = userdetail.name;
     const phoneNumber = userdetail.mobile;
 
+    const latestApproved = await getLatestApprovedSubscription(id);
+    const alreadyLifetime = userHasLifetimeAccess(userdetail, latestApproved);
+
     const pendingPayment = await Subscription.findOne({
       user: id,
       $or: [
@@ -548,19 +553,41 @@ const approveUser = async (req, res) => {
         {
           source: "user_payment",
           reviewStatus: { $exists: false },
-          membershipDurationMonths: { $gte: 1 },
+          $or: [
+            { membershipDurationMonths: { $gte: 1 } },
+            { isLifetime: true },
+          ],
           createdAt: { $gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) },
         },
       ],
     }).sort({ createdAt: -1 });
+
+    const pendingIsLifetime = isLifetimeMembershipRecord(pendingPayment);
+
+    if (alreadyLifetime && !pendingIsLifetime) {
+      return rejectLifetimeDowngrade(res);
+    }
+
+    const parsedExpiry = Number(expiry);
+    if (!pendingIsLifetime && (isNaN(parsedExpiry) || parsedExpiry <= 0)) {
+      return res
+        .status(400)
+        .json({ message: "Invalid expiry value. Must be a positive number." });
+    }
+
     const pendingDuration = Number(pendingPayment?.membershipDurationMonths);
     const durationMonths =
-      Number.isInteger(pendingDuration) && pendingDuration > 0
-        ? pendingDuration
-        : parsedExpiry;
-    const expiresAt = calculateExpiryDateFromMonths(start, durationMonths);
-    const lengthLabel =
-      durationMonths === 18
+      pendingIsLifetime
+        ? null
+        : Number.isInteger(pendingDuration) && pendingDuration > 0
+          ? pendingDuration
+          : parsedExpiry;
+    const expiresAt = pendingIsLifetime
+      ? null
+      : calculateExpiryDateFromMonths(start, durationMonths);
+    const lengthLabel = pendingIsLifetime
+      ? "lifetime"
+      : durationMonths === 18
         ? "1.5 years"
         : durationMonths === 12
           ? "1 year"
@@ -569,8 +596,13 @@ const approveUser = async (req, res) => {
     // A submitted Hallmark or Gold payment keeps its own length.
     let subscription =
       pendingPayment || (await Subscription.findOne({ user: id }));
-    const inferredPlanName =
-      durationMonths === 18 ? "Hallmark" : durationMonths === 12 ? "Gold" : "";
+    const inferredPlanName = pendingIsLifetime
+      ? LIFETIME_PLAN_NAME
+      : durationMonths === 18
+        ? "Hallmark"
+        : durationMonths === 12
+          ? "Gold"
+          : "";
 
     if (!subscription) {
       subscription = new Subscription({
@@ -582,6 +614,8 @@ const approveUser = async (req, res) => {
         createdAt: start,
         membershipDurationMonths: durationMonths,
         planName: inferredPlanName,
+        planPrice: pendingIsLifetime ? LIFETIME_PLAN_PRICE : null,
+        isLifetime: pendingIsLifetime,
         source: "admin_manual",
         reviewStatus: "approved",
       });
@@ -592,12 +626,20 @@ const approveUser = async (req, res) => {
       subscription.createdAt = start;
       subscription.expiresAt = expiresAt;
       subscription.membershipDurationMonths = durationMonths;
-      if (!subscription.planName && inferredPlanName) {
+      subscription.isLifetime = pendingIsLifetime;
+      if (pendingIsLifetime) {
+        subscription.planName = LIFETIME_PLAN_NAME;
+        subscription.planPrice = LIFETIME_PLAN_PRICE;
+      } else if (!subscription.planName && inferredPlanName) {
         subscription.planName = inferredPlanName;
       }
       subscription.reviewStatus = "approved";
       await subscription.save();
     } else {
+      if (alreadyLifetime) {
+        return rejectLifetimeDowngrade(res);
+      }
+
       subscription.fullName = fullName;
       subscription.phoneNumber = phoneNumber;
       subscription.createdAt = start;
@@ -606,6 +648,7 @@ const approveUser = async (req, res) => {
       if (!subscription.planName && inferredPlanName) {
         subscription.planName = inferredPlanName;
       }
+      subscription.isLifetime = false;
       subscription.source = "admin_manual";
       subscription.reviewStatus = "approved";
 
@@ -629,13 +672,16 @@ const approveUser = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const planLabel = pendingPayment?.planName
-      ? `${pendingPayment.planName} for ${lengthLabel}`
+      ? pendingIsLifetime
+        ? pendingPayment.planName
+        : `${pendingPayment.planName} for ${lengthLabel}`
       : lengthLabel;
 
     res.json({
       message: `User approved successfully for ${planLabel}.`,
       user,
       durationMonths,
+      isLifetime: pendingIsLifetime,
     });
   } catch (error) {
     console.error("Error approving user:", error);
@@ -668,32 +714,53 @@ const approveSubscriptionPayment = async (req, res) => {
       return res.status(404).json({ message: "Linked user not found." });
     }
 
-    const storedDuration = Number(subscription.membershipDurationMonths);
-    const durationMonths =
-      Number.isInteger(storedDuration) && storedDuration > 0
-        ? storedDuration
-        : Number.isInteger(requestedDuration) && requestedDuration > 0
-          ? requestedDuration
-          : resolveSubscriptionDurationMonths(subscription);
+    const paymentIsLifetime = isLifetimeMembershipRecord(subscription);
+    const latestApproved = await getLatestApprovedSubscription(
+      subscription.user._id
+    );
+    const alreadyLifetime = userHasLifetimeAccess(
+      subscription.user,
+      latestApproved
+    );
 
-    if (!durationMonths) {
-      return res.status(400).json({
-        message:
-          "Unable to determine the membership duration for this payment request.",
-      });
+    if (alreadyLifetime && !paymentIsLifetime) {
+      return rejectLifetimeDowngrade(res);
+    }
+
+    let durationMonths = null;
+    let expiresAt = null;
+
+    if (!paymentIsLifetime) {
+      const storedDuration = Number(subscription.membershipDurationMonths);
+      durationMonths =
+        Number.isInteger(storedDuration) && storedDuration > 0
+          ? storedDuration
+          : Number.isInteger(requestedDuration) && requestedDuration > 0
+            ? requestedDuration
+            : resolveSubscriptionDurationMonths(subscription);
+
+      if (!durationMonths) {
+        return res.status(400).json({
+          message:
+            "Unable to determine the membership duration for this payment request.",
+        });
+      }
+
+      expiresAt = calculateExpiryDateFromMonths(new Date(), durationMonths);
     }
 
     const approvalStart = new Date();
-    const expiresAt = calculateExpiryDateFromMonths(
-      approvalStart,
-      durationMonths
-    );
 
     subscription.fullName = subscription.user.name || subscription.fullName;
     subscription.phoneNumber = subscription.user.mobile || subscription.phoneNumber;
     subscription.createdAt = approvalStart;
     subscription.expiresAt = expiresAt;
     subscription.membershipDurationMonths = durationMonths;
+    subscription.isLifetime = paymentIsLifetime;
+    if (paymentIsLifetime) {
+      subscription.planName = LIFETIME_PLAN_NAME;
+      subscription.planPrice = LIFETIME_PLAN_PRICE;
+    }
     subscription.reviewStatus = "approved";
     subscription.source = inferSubscriptionSource(subscription);
 

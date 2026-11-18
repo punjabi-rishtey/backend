@@ -26,9 +26,16 @@ const {
 } = Session;
 const {
   addCalendarMonths,
+  isLifetimeMembershipRecord,
+  LIFETIME_PLAN_NAME,
+  LIFETIME_PLAN_PRICE,
   normalizeAnnualMembershipDurationMonths,
   normalizeAnnualMembershipPrice,
 } = require("../services/membershipPlanPolicy");
+const {
+  memberHasLifetimeAccess,
+  rejectLifetimeDowngrade,
+} = require("../services/membershipAccess");
 const {
   loadRelatedProfileDocs,
 } = require("../services/relatedProfileDocs");
@@ -1597,22 +1604,32 @@ const createSubscription = async (req, res) => {
     }
 
     const membershipTier = await Membership.findById(membershipId).select(
-      "name duration price"
+      "name duration price isLifetime"
     );
 
     if (!membershipTier) {
       return res.status(404).json({ error: "Membership plan not found." });
     }
 
-    const membershipDurationMonths = normalizeAnnualMembershipDurationMonths(
-      membershipTier.duration
-    );
+    const planIsLifetime = isLifetimeMembershipRecord(membershipTier);
+    const hasLifetime = await memberHasLifetimeAccess(userId);
 
-    if (
-      !Number.isInteger(membershipDurationMonths) ||
-      membershipDurationMonths <= 0
-    ) {
-      return res.status(400).json({ error: "Membership plan duration is invalid." });
+    if (hasLifetime && !planIsLifetime) {
+      return rejectLifetimeDowngrade(res);
+    }
+
+    let membershipDurationMonths = null;
+    if (!planIsLifetime) {
+      membershipDurationMonths = normalizeAnnualMembershipDurationMonths(
+        membershipTier.duration
+      );
+
+      if (
+        !Number.isInteger(membershipDurationMonths) ||
+        membershipDurationMonths <= 0
+      ) {
+        return res.status(400).json({ error: "Membership plan duration is invalid." });
+      }
     }
 
     // 4) Store the screenshot. Demo mode keeps it on local disk; production uses Cloudinary.
@@ -1637,7 +1654,9 @@ const createSubscription = async (req, res) => {
     }
 
     const currentDate = new Date();
-    const expiresAt = addCalendarMonths(currentDate, membershipDurationMonths);
+    const expiresAt = planIsLifetime
+      ? null
+      : addCalendarMonths(currentDate, membershipDurationMonths);
 
     // 6) Create subscription document
     const subscription = new Subscription({
@@ -1645,15 +1664,17 @@ const createSubscription = async (req, res) => {
       fullName: safeFullName,
       phoneNumber: safePhoneNumber,
       screenshotUrl,
-      membershipDurationMonths,
-      planName: membershipTier.name,
-      planPrice: normalizeAnnualMembershipPrice(membershipTier.price),
+      membershipDurationMonths: planIsLifetime ? null : membershipDurationMonths,
+      planName: planIsLifetime ? LIFETIME_PLAN_NAME : membershipTier.name,
+      planPrice: planIsLifetime
+        ? LIFETIME_PLAN_PRICE
+        : normalizeAnnualMembershipPrice(membershipTier.price),
       reviewStatus: "pending",
       source: "user_payment",
       couponCode: null,
       discountAmount: 0,
+      isLifetime: planIsLifetime,
       expiresAt,
-      // createdAt is automatic, expiresAt handled in pre-save hook
     });
 
     // 7) Save subscription

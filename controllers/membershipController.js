@@ -1,14 +1,18 @@
 // ✅ Membership Controller
 const Membership = require("../models/Membership");
 const {
+  OFFICIAL_ANNUAL_MEMBERSHIP_DURATION_MONTHS,
   normalizeAnnualMembershipDurationMonths,
   normalizeAnnualMembershipPrice,
+  parseIsLifetimeFlag,
 } = require("../services/membershipPlanPolicy");
 
 const normalizeMembershipInput = (body) => {
   const name = String(body.name || "").trim();
-  const price = normalizeAnnualMembershipPrice(body.price);
-  const duration = normalizeAnnualMembershipDurationMonths(body.duration);
+  const isLifetime = parseIsLifetimeFlag(body.isLifetime);
+  const price = isLifetime
+    ? Number(body.price)
+    : normalizeAnnualMembershipPrice(body.price);
   const premiumProfilesView =
     body.premiumProfilesView === undefined ||
     String(body.premiumProfilesView).trim() === ""
@@ -23,8 +27,25 @@ const normalizeMembershipInput = (body) => {
     throw new Error("Plan price must be 0 or more.");
   }
 
-  if (!Number.isInteger(duration) || duration <= 0) {
-    throw new Error("Plan duration must be a whole number of months.");
+  let duration;
+  if (isLifetime) {
+    const rawDuration = body.duration;
+    if (rawDuration === undefined || rawDuration === null || rawDuration === "") {
+      duration = OFFICIAL_ANNUAL_MEMBERSHIP_DURATION_MONTHS;
+    } else {
+      const numericDuration = Number(rawDuration);
+      if (!Number.isInteger(numericDuration) || numericDuration <= 0) {
+        throw new Error(
+          "When provided, a lifetime plan duration must be a positive month count used only for schema storage; access is controlled by isLifetime."
+        );
+      }
+      duration = numericDuration;
+    }
+  } else {
+    duration = normalizeAnnualMembershipDurationMonths(body.duration);
+    if (!Number.isInteger(duration) || duration <= 0) {
+      throw new Error("Plan duration must be a whole number of months.");
+    }
   }
 
   return {
@@ -32,6 +53,7 @@ const normalizeMembershipInput = (body) => {
     price,
     duration,
     premiumProfilesView,
+    isLifetime,
   };
 };
 
@@ -41,9 +63,14 @@ const getAllMemberships = async (req, res) => {
     const formattedMemberships = memberships.map((membership) => ({
       _id: membership._id, // Ensure _id is included
       name: membership.name,
-      price: normalizeAnnualMembershipPrice(membership.price),
+      price: membership.isLifetime
+        ? Number(membership.price)
+        : normalizeAnnualMembershipPrice(membership.price),
       currency: "₹",
-      duration: normalizeAnnualMembershipDurationMonths(membership.duration),
+      duration: membership.isLifetime
+        ? membership.duration
+        : normalizeAnnualMembershipDurationMonths(membership.duration),
+      isLifetime: Boolean(membership.isLifetime),
       premiumProfilesView: membership.premiumProfilesView,
       mostPopular: membership.name === "Gold",
       features: [
