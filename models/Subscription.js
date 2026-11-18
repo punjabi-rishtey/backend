@@ -54,6 +54,10 @@ const subscriptionSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  isLifetime: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 // Pre-save hook: Automatically set expiresAt to one year after the payment date.

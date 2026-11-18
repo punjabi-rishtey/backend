@@ -13,6 +13,7 @@ const subscriptionId = "6ada3c168a78ac324034cdf5";
 const queryResult = (doc) => {
   const query = Promise.resolve(doc);
   query.populate = () => query;
+  query.sort = () => query;
   return query;
 };
 
@@ -69,6 +70,7 @@ const main = async () => {
   };
 
   Subscription.findById = () => queryResult(payment);
+  Subscription.findOne = () => queryResult(null);
 
   const approveRes = mockRes();
   await approveSubscriptionPayment(
@@ -107,6 +109,7 @@ const main = async () => {
   member.status = "Approved";
   userWrites.length = 0;
   Subscription.findById = () => queryResult(renewal);
+  Subscription.findOne = () => queryResult(null);
 
   const rejectRes = mockRes();
   await rejectSubscriptionPayment(
