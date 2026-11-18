@@ -24,8 +24,6 @@ const sendEmail = require("../utils/sendEmail");
 const {
   addCalendarMonths,
   isLifetimeMembershipRecord,
-  LIFETIME_PLAN_NAME,
-  LIFETIME_PLAN_PRICE,
 } = require("../services/membershipPlanPolicy");
 const {
   getLatestApprovedSubscription,
@@ -597,7 +595,7 @@ const approveUser = async (req, res) => {
     let subscription =
       pendingPayment || (await Subscription.findOne({ user: id }));
     const inferredPlanName = pendingIsLifetime
-      ? LIFETIME_PLAN_NAME
+      ? String(pendingPayment?.planName || "").trim()
       : durationMonths === 18
         ? "Hallmark"
         : durationMonths === 12
@@ -614,7 +612,7 @@ const approveUser = async (req, res) => {
         createdAt: start,
         membershipDurationMonths: durationMonths,
         planName: inferredPlanName,
-        planPrice: pendingIsLifetime ? LIFETIME_PLAN_PRICE : null,
+        planPrice: pendingIsLifetime ? (pendingPayment?.planPrice ?? null) : null,
         isLifetime: pendingIsLifetime,
         source: "admin_manual",
         reviewStatus: "approved",
@@ -627,10 +625,7 @@ const approveUser = async (req, res) => {
       subscription.expiresAt = expiresAt;
       subscription.membershipDurationMonths = durationMonths;
       subscription.isLifetime = pendingIsLifetime;
-      if (pendingIsLifetime) {
-        subscription.planName = LIFETIME_PLAN_NAME;
-        subscription.planPrice = LIFETIME_PLAN_PRICE;
-      } else if (!subscription.planName && inferredPlanName) {
+      if (!pendingIsLifetime && !subscription.planName && inferredPlanName) {
         subscription.planName = inferredPlanName;
       }
       subscription.reviewStatus = "approved";
@@ -757,10 +752,6 @@ const approveSubscriptionPayment = async (req, res) => {
     subscription.expiresAt = expiresAt;
     subscription.membershipDurationMonths = durationMonths;
     subscription.isLifetime = paymentIsLifetime;
-    if (paymentIsLifetime) {
-      subscription.planName = LIFETIME_PLAN_NAME;
-      subscription.planPrice = LIFETIME_PLAN_PRICE;
-    }
     subscription.reviewStatus = "approved";
     subscription.source = inferSubscriptionSource(subscription);
 

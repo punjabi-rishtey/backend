@@ -46,6 +46,16 @@ const normalizeAnnualMembershipDurationMonths = (duration) => {
   return numericDuration;
 };
 
+const membershipPlanPrice = (membershipTier, planIsLifetime) => {
+  const rawPrice = Number(membershipTier?.price);
+
+  if (planIsLifetime) {
+    return Number.isFinite(rawPrice) ? rawPrice : 0;
+  }
+
+  return normalizeAnnualMembershipPrice(membershipTier?.price);
+};
+
 const addCalendarMonths = (startDate, months) => {
   const start = new Date(startDate);
   const expiresAt = new Date(start);
@@ -67,6 +77,7 @@ module.exports = {
   LIFETIME_DOWNGRADE_MESSAGE,
   addCalendarMonths,
   isLifetimeMembershipRecord,
+  membershipPlanPrice,
   normalizeAnnualMembershipDurationMonths,
   normalizeAnnualMembershipPrice,
   parseIsLifetimeFlag,

@@ -7,7 +7,10 @@ const Subscription = require("../models/Subscription");
 const User = require("../models/User");
 const Membership = require("../models/Membership");
 const { isLifetimeMembershipRecord } = require("../services/membershipPlanPolicy");
-const { userHasLifetimeAccess } = require("../services/membershipAccess");
+const {
+  buildOwnProfileMembershipSummary,
+  userHasLifetimeAccess,
+} = require("../services/membershipAccess");
 const {
   approveSubscriptionPayment,
 } = require("../controllers/adminController");
@@ -148,8 +151,8 @@ const main = async () => {
     phoneNumber: "9222222222",
     screenshotUrl: "https://example.test/lifetime.jpg",
     membershipDurationMonths: null,
-    planName: "Lifetime",
-    planPrice: 5000,
+    planName: "Forever Member",
+    planPrice: 4999,
     reviewStatus: "pending",
     source: "user_payment",
     isLifetime: true,
@@ -173,6 +176,8 @@ const main = async () => {
   assert.equal(lifetimePayment.reviewStatus, "approved");
   assert.equal(lifetimePayment.expiresAt, null);
   assert.equal(lifetimePayment.isLifetime, true);
+  assert.equal(lifetimePayment.planName, "Forever Member");
+  assert.equal(lifetimePayment.planPrice, 4999);
   assert.equal(lifetimeMember.metadata.exp_date, null);
   assert.equal(
     userWrites.some((write) => write["metadata.exp_date"] === null),
@@ -229,8 +234,8 @@ const main = async () => {
   Membership.findById = () =>
     queryResult({
       _id: lifetimePlanId,
-      name: "Lifetime",
-      price: 5000,
+      name: "Forever Member",
+      price: 4999,
       duration: 12,
       isLifetime: true,
     });
@@ -253,8 +258,8 @@ const main = async () => {
   const pendingLifetime = savedSubscriptions[0];
   assert.equal(pendingLifetime.expiresAt, null);
   assert.equal(pendingLifetime.isLifetime, true);
-  assert.equal(pendingLifetime.planName, "Lifetime");
-  assert.equal(pendingLifetime.planPrice, 5000);
+  assert.equal(pendingLifetime.planName, "Forever Member");
+  assert.equal(pendingLifetime.planPrice, 4999);
 
   Subscription.findOne = () =>
     queryResult({
@@ -330,6 +335,22 @@ const main = async () => {
     "Gold payment gets a real end date"
   );
   assert.equal(goldPending.isLifetime, false);
+
+  const profileSummary = buildOwnProfileMembershipSummary(
+    { status: "Approved", metadata: { exp_date: null } },
+    {
+      reviewStatus: "approved",
+      isLifetime: true,
+      planName: "Forever Member",
+      planPrice: 4999,
+    }
+  );
+
+  assert.equal(profileSummary.hasLifetimeAccess, true);
+  assert.equal(profileSummary.isLifetime, true);
+  assert.equal(profileSummary.planName, "Forever Member");
+  assert.equal(profileSummary.planPrice, 4999);
+  assert.equal(profileSummary.exp_date, null);
 
   console.log("lifetime membership ok");
 };

@@ -27,12 +27,13 @@ const {
 const {
   addCalendarMonths,
   isLifetimeMembershipRecord,
-  LIFETIME_PLAN_NAME,
-  LIFETIME_PLAN_PRICE,
+  membershipPlanPrice,
   normalizeAnnualMembershipDurationMonths,
   normalizeAnnualMembershipPrice,
 } = require("../services/membershipPlanPolicy");
 const {
+  buildOwnProfileMembershipSummary,
+  getLatestApprovedSubscription,
   memberHasLifetimeAccess,
   rejectLifetimeDowngrade,
 } = require("../services/membershipAccess");
@@ -890,6 +891,14 @@ const getUserProfile = async (req, res) => {
       userProfile.secondary_contact = "";
     }
 
+    if (isOwnProfile) {
+      const latestApproved = await getLatestApprovedSubscription(userId);
+      userProfile.membership = buildOwnProfileMembershipSummary(
+        user,
+        latestApproved
+      );
+    }
+
     res.json(userProfile);
   } catch (error) {
     console.error("❌ Error fetching user profile:", error);
@@ -1665,10 +1674,8 @@ const createSubscription = async (req, res) => {
       phoneNumber: safePhoneNumber,
       screenshotUrl,
       membershipDurationMonths: planIsLifetime ? null : membershipDurationMonths,
-      planName: planIsLifetime ? LIFETIME_PLAN_NAME : membershipTier.name,
-      planPrice: planIsLifetime
-        ? LIFETIME_PLAN_PRICE
-        : normalizeAnnualMembershipPrice(membershipTier.price),
+      planName: membershipTier.name,
+      planPrice: membershipPlanPrice(membershipTier, planIsLifetime),
       reviewStatus: "pending",
       source: "user_payment",
       couponCode: null,

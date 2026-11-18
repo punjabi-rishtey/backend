@@ -46,7 +46,23 @@ const rejectLifetimeDowngrade = (res) =>
     message: LIFETIME_DOWNGRADE_MESSAGE,
   });
 
+const buildOwnProfileMembershipSummary = (user, latestApprovedSubscription) => {
+  const hasLifetimeAccess = userHasLifetimeAccess(user, latestApprovedSubscription);
+
+  return {
+    hasLifetimeAccess,
+    isLifetime: hasLifetimeAccess,
+    planName: hasLifetimeAccess ? latestApprovedSubscription?.planName || null : null,
+    planPrice:
+      hasLifetimeAccess && latestApprovedSubscription?.planPrice != null
+        ? latestApprovedSubscription.planPrice
+        : null,
+    exp_date: user?.metadata?.exp_date ?? null,
+  };
+};
+
 module.exports = {
+  buildOwnProfileMembershipSummary,
   getLatestApprovedSubscription,
   memberHasLifetimeAccess,
   userHasLifetimeAccess,
