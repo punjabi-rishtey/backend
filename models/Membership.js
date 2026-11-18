@@ -7,6 +7,7 @@ const membershipSchema = new mongoose.Schema({
   premiumProfilesView: { type: String, default: "Unlimited" },
   duration: { type: Number, required: true },
   isLifetime: { type: Boolean, default: false },
+  description: { type: String, default: "", trim: true },
   created_at: { type: Date, default: Date.now },
 });
 

@@ -7,6 +7,21 @@ const {
   parseIsLifetimeFlag,
 } = require("../services/membershipPlanPolicy");
 
+const MAX_MEMBERSHIP_DESCRIPTION_LENGTH = 200;
+
+const normalizeMembershipDescription = (raw) => {
+  if (raw === undefined || raw === null) {
+    return "";
+  }
+  const description = String(raw).trim();
+  if (description.length > MAX_MEMBERSHIP_DESCRIPTION_LENGTH) {
+    throw new Error(
+      `Plan description must be at most ${MAX_MEMBERSHIP_DESCRIPTION_LENGTH} characters.`
+    );
+  }
+  return description;
+};
+
 const normalizeMembershipInput = (body) => {
   const name = String(body.name || "").trim();
   const isLifetime = parseIsLifetimeFlag(body.isLifetime);
@@ -48,12 +63,15 @@ const normalizeMembershipInput = (body) => {
     }
   }
 
+  const description = normalizeMembershipDescription(body.description);
+
   return {
     name,
     price,
     duration,
     premiumProfilesView,
     isLifetime,
+    description,
   };
 };
 
@@ -71,6 +89,10 @@ const getAllMemberships = async (req, res) => {
         ? membership.duration
         : normalizeAnnualMembershipDurationMonths(membership.duration),
       isLifetime: Boolean(membership.isLifetime),
+      description:
+        membership.description === undefined || membership.description === null
+          ? ""
+          : String(membership.description),
       premiumProfilesView: membership.premiumProfilesView,
       mostPopular: membership.name === "Gold",
       features: [
