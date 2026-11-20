@@ -145,6 +145,32 @@ const resolveSearchPagination = (page, limit) => {
   return { page: pageNum, limit: limitNum, skip };
 };
 
+const ALLOWED_SEARCH_SORTS = Object.freeze({
+  newest: { "metadata.register_date": -1, _id: 1 },
+  name_asc: { name: 1, _id: 1 },
+  name_desc: { name: -1, _id: 1 },
+});
+
+const ALLOWED_SEARCH_SORT_KEYS = Object.freeze(Object.keys(ALLOWED_SEARCH_SORTS));
+
+const resolveSearchSort = (sort) => {
+  if (sort === undefined || sort === null || sort === "") {
+    return { ok: true, sort: { _id: 1 } };
+  }
+
+  const normalized = String(sort).trim().toLowerCase();
+  const mongoSort = ALLOWED_SEARCH_SORTS[normalized];
+
+  if (!mongoSort) {
+    return {
+      ok: false,
+      message: `Invalid sort. Allowed values: ${ALLOWED_SEARCH_SORT_KEYS.join(", ")}.`,
+    };
+  }
+
+  return { ok: true, sort: mongoSort };
+};
+
 const MANGALIK_IS_MANGLIK = /^manglik$/i;
 const MANGALIK_IS_PARTIAL = /^partial_manglik$/i;
 const MANGALIK_IS_NON = /^non_manglik$/i;
@@ -704,7 +730,13 @@ const searchMatches = async (req, res) => {
       search,
       page,
       limit,
+      sort,
     } = req.query;
+
+    const sortResolution = resolveSearchSort(sort);
+    if (!sortResolution.ok) {
+      return res.status(400).json({ message: sortResolution.message });
+    }
 
     const query = buildMemberDiscoverableUserFilter(req.membershipUser);
 
@@ -747,7 +779,7 @@ const searchMatches = async (req, res) => {
       User.countDocuments(query),
       User.find(query)
         .select("-password")
-        .sort({ _id: 1 })
+        .sort(sortResolution.sort)
         .skip(skip)
         .limit(limitNum),
     ]);

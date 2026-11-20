@@ -967,11 +967,23 @@
               "type": "string"
             },
             "description": "Marital status of the match"
+          },
+          {
+            "in": "query",
+            "name": "sort",
+            "schema": {
+              "type": "string",
+              "enum": ["newest", "name_asc", "name_desc"]
+            },
+            "description": "Optional result order. Omit for default stable _id ascending. Each option uses _id as tie-breaker for pagination."
           }
         ],
         "responses": {
           "200": {
             "description": "List of matching profiles"
+          },
+          "400": {
+            "description": "Invalid sort parameter"
           },
           "500": {
             "description": "Server error"
