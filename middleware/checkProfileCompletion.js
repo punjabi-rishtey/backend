@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const { PROFILE_INCOMPLETE } = require("../constants/accessErrorCodes");
 
 const checkProfileCompletion = async (req, res, next) => {
   try {
@@ -16,7 +17,8 @@ const checkProfileCompletion = async (req, res, next) => {
 
     if (completion < 70) {
       return res.status(403).json({
-        error: "Profile must be at least 70% complete to access this feature."
+        error: "Profile must be at least 70% complete to access this feature.",
+        code: PROFILE_INCOMPLETE,
       });
     }
 
