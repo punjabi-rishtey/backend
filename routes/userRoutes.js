@@ -1,5 +1,4 @@
 const express = require("express");
-const User = require("../models/User");
 const {
   registerUser,
   loginUser,
@@ -25,43 +24,13 @@ const protect = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
 const profilePhotoUpload = require("../middleware/profilePhotoUploadMiddleware");
 const checkProfileCompletion = require("../middleware/checkProfileCompletion");
+const requireApprovedMembershipAccess = require("../middleware/requireApprovedMembershipAccess");
 const {
   moderatedWriteLimiter,
   authAttemptLimiter,
 } = require("../middleware/rateLimitMiddleware");
 
 const router = express.Router();
-
-const requireApprovedMembershipAccess = async (req, res, next) => {
-  try {
-    const user = await User.findById(req.user.id).select(
-      "status metadata.exp_date gender"
-    );
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    if (user.status !== "Approved") {
-      return res.status(403).json({
-        error:
-          "Your profile is not active yet. Please wait for approval to access this feature.",
-      });
-    }
-
-    if (user.metadata?.exp_date && new Date() > user.metadata.exp_date) {
-      return res.status(403).json({
-        error: "Your subscription has expired. Please renew to access this feature.",
-      });
-    }
-
-    req.membershipUser = user;
-    next();
-  } catch (error) {
-    console.error("Error validating membership access:", error);
-    return res.status(500).json({ error: "Server error" });
-  }
-};
 
 // New route to fetch basic details of active users for approved members
 router.get(
