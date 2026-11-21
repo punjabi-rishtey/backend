@@ -88,6 +88,7 @@ const membershipRoutes = require("./routes/membershipRoutes");
 const couponRoutes = require("./routes/couponRoutes");
 const startExpiryCheckCron = require("./utils/checkExpiryCron");
 const messageRoutes = require("./routes/messageRoutes");
+const optionsRoutes = require("./routes/optionsRoutes");
 
 loadEnv();
 
@@ -210,6 +211,7 @@ app.use("/api/review", reviewRoutes); // ✅ Added Review Routes
 app.use("/api/memberships", membershipRoutes);
 app.use("/api/coupons", couponRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/options", optionsRoutes);
 
 app.get("/", (req, res) => {
   res.send("🚀 API is running...");

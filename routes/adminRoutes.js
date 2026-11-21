@@ -9,6 +9,7 @@ const {
   approveUser,
   blockUser,
   editUser,
+  updateUserPreferencesByAdmin,
   addUserFromAdmin,
   getUserRegistrationsPerMonth,
   getUserStatusCounts,
@@ -64,6 +65,8 @@ router.put("/users/:id/pending", adminAuth, moveUserToPending);
 router.put("/users/block/:id", adminAuth, blockUser);
 
 router.put("/users/edit/:id", adminAuth, editUser);
+
+router.put("/users/:id/preferences", adminAuth, updateUserPreferencesByAdmin);
 
 router.post(
   "/users/:id/profile-pictures",

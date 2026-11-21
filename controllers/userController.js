@@ -39,7 +39,9 @@ const {
 } = require("../services/membershipAccess");
 const {
   loadRelatedProfileDocs,
+  upsertUserPreferences,
 } = require("../services/relatedProfileDocs");
+const { validatePartnerPreferenceBody } = require("../services/partnerPreferenceOptions");
 const {
   screenProfileContent,
 } = require("../services/contentModeration");
@@ -1739,6 +1741,47 @@ const createSubscription = async (req, res) => {
   }
 };
 
+const updateUserPreferences = async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    if (req.admin) {
+      return res.status(403).json({
+        message: "Admins cannot update preferences on the member route.",
+      });
+    }
+
+    const requesterId = String(req.user?.id || req.user?._id || "");
+    if (!requesterId || requesterId !== String(userId)) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    const validated = validatePartnerPreferenceBody(req.body);
+    if (!validated.ok) {
+      return res.status(400).json({ message: validated.message });
+    }
+
+    const saved = await upsertUserPreferences(userId, {
+      preference1: validated.preference1,
+      preference2: validated.preference2,
+      preference3: validated.preference3,
+    });
+
+    res.json({
+      preference1: saved.preference1,
+      preference2: saved.preference2,
+      preference3: saved.preference3,
+    });
+  } catch (error) {
+    console.error("Error updating user preferences:", error);
+    const status = error.statusCode || 500;
+    res.status(status).json({
+      message: status === 404 ? error.message : "Server error",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createSubscription,
   getAllBasicUserDetails,
@@ -1748,6 +1791,7 @@ module.exports = {
   searchMatches,
   getUserProfile,
   updateUserProfile,
+  updateUserPreferences,
   uploadProfilePictures,
   deleteProfilePicture,
   setProfilePicture,
