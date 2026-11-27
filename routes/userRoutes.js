@@ -41,8 +41,12 @@ router.get(
   getAllBasicUserDetails
 );
 
+const registerProfilePhotoUpload = profilePhotoUpload.handleProfilePhotoUpload(
+  profilePhotoUpload.array("profile_pictures", 10)
+);
+
 // Updated register route to handle file uploads
-router.post("/register", profilePhotoUpload.array("profile_pictures", 10), registerUser);
+router.post("/register", registerProfilePhotoUpload, registerUser);
 
 router.post("/login", authAttemptLimiter, loginUser);
 

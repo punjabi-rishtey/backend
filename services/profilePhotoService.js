@@ -126,16 +126,60 @@ const profilePhotoPayload = (user) => {
   };
 };
 
+const HEIC_EXTENSIONS = new Set([".heic", ".heif"]);
+const HEIC_MIME_PATTERN = /^image\/heif?$/i;
+
+const isHeicProfilePhoto = (file) => {
+  const ext = String(file?.originalname || "")
+    .slice(String(file?.originalname || "").lastIndexOf("."))
+    .toLowerCase();
+  const mime = String(file?.mimetype || "")
+    .toLowerCase()
+    .split(";")[0]
+    .trim();
+  return HEIC_EXTENSIONS.has(ext) || HEIC_MIME_PATTERN.test(mime);
+};
+
+const cloudinaryUploadErrorMessage = (error, file) => {
+  const cloudinaryMessage = String(error?.message || "").trim();
+  if (isHeicProfilePhoto(file)) {
+    if (/heic|heif|format|unsupported|invalid/i.test(cloudinaryMessage)) {
+      return (
+        "This photo is in HEIC/HEIF format and could not be processed. " +
+        "Please save it as JPEG or PNG and try again."
+      );
+    }
+  }
+
+  if (cloudinaryMessage) {
+    return `Profile photo upload failed: ${cloudinaryMessage}`;
+  }
+
+  return "Profile photo upload failed. Please try a different JPEG or PNG image.";
+};
+
 const uploadBufferToCloudinary = (file) =>
   new Promise((resolve, reject) => {
+    const uploadOptions = {
+      folder: PROFILE_PHOTO_FOLDER,
+      resource_type: "image",
+      transformation: [{ width: 500, height: 500, crop: "limit" }],
+    };
+
+    if (isHeicProfilePhoto(file)) {
+      uploadOptions.format = "jpg";
+    }
+
     const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: PROFILE_PHOTO_FOLDER,
-        resource_type: "image",
-        transformation: [{ width: 500, height: 500, crop: "limit" }],
-      },
+      uploadOptions,
       (error, result) => {
-        if (error) return reject(error);
+        if (error) {
+          const wrapped = new ProfilePhotoError(
+            cloudinaryUploadErrorMessage(error, file),
+            400
+          );
+          return reject(wrapped);
+        }
         resolve(result);
       }
     );
