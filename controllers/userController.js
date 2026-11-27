@@ -465,6 +465,11 @@ const registerUser = async (req, res) => {
       });
     }
     console.error("❌ Error registering user:", error);
+
+    if (error instanceof ProfilePhotoError) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+
     res.status(500).json({ error: error.message });
   }
 };
